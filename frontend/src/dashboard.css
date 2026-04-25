@@ -1,0 +1,179 @@
+/* ========================================
+   DASHBOARD COMPONENTS
+   ======================================== */
+
+.dashboard-container {
+  width: 100%;
+  max-width: 1200px;
+  min-height: 80vh;
+  margin: 0 auto;
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 80px -20px rgba(99, 102, 241, 0.15);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  animation: containerReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-header {
+  padding: var(--space-xl) var(--space-2xl);
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.dashboard-header .brand-logo {
+  margin-bottom: 0;
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+
+.dashboard-user-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.user-badge {
+  background: linear-gradient(135deg, var(--primary-600), var(--primary-500));
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+}
+
+.btn-logout {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--neutral-300);
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: var(--transition-base);
+}
+
+.btn-logout:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--error-400);
+}
+
+.dashboard-body {
+  padding: var(--space-2xl);
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2xl);
+}
+
+@media (min-width: 1024px) {
+  .dashboard-body.split-view {
+    grid-template-columns: 1fr 1.5fr;
+  }
+}
+
+.dashboard-section {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-xl);
+  padding: var(--space-xl);
+  border: 1px solid var(--glass-border);
+}
+
+.section-title {
+  font-family: var(--font-primary);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: var(--space-lg);
+  color: var(--neutral-50);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.section-title span {
+  background: linear-gradient(135deg, var(--primary-400), var(--accent-400));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Forms inside dashboard */
+.dashboard-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+}
+
+@media (min-width: 640px) {
+  .dashboard-form.two-cols {
+    grid-template-columns: 1fr 1fr;
+  }
+  .dashboard-form .full-width {
+    grid-column: 1 / -1;
+  }
+}
+
+.dashboard-form .form-input {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Cards for Projects/Bids */
+.data-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-md);
+  transition: var(--transition-base);
+}
+
+.data-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.data-card h3 {
+  font-size: 1.2rem;
+  color: var(--neutral-50);
+  margin-bottom: var(--space-xs);
+}
+
+.data-card .meta {
+  font-size: 0.85rem;
+  color: var(--neutral-400);
+  margin-bottom: var(--space-md);
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.data-card .meta span {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.data-card p {
+  font-size: 0.95rem;
+  color: var(--neutral-300);
+  margin-bottom: var(--space-md);
+}
+
+.btn-small {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+}
