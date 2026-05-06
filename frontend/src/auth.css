@@ -1,0 +1,82 @@
+body {
+  margin: 0;
+  font-family: Arial;
+  background: linear-gradient(135deg, #020617, #020617);
+  color: white;
+}
+
+.auth-container {
+  display: flex;
+  height: 100vh;
+}
+
+.left {
+  flex: 1;
+  padding: 80px;
+  background: linear-gradient(135deg, #0f172a, #020617);
+}
+
+.left h1 span {
+  color: #ec4899;
+}
+
+.card {
+  width: 400px;
+  margin: auto;
+  padding: 30px;
+  background: #0f172a;
+  border-radius: 15px;
+}
+
+.card input {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 8px;
+  border: none;
+}
+
+button {
+  width: 100%;
+  margin-top: 15px;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #6366f1, #ec4899);
+  color: white;
+  cursor: pointer;
+}
+
+.role-toggle {
+  display: flex;
+  gap: 10px;
+}
+
+.role-toggle button {
+  flex: 1;
+  background: #1e293b;
+}
+
+.role-toggle .active {
+  background: linear-gradient(90deg, #6366f1, #ec4899);
+}
+
+.input-group {
+  position: relative;
+}
+
+.input-group span {
+  position: absolute;
+  right: 10px;
+  top: 15px;
+  cursor: pointer;
+}
+
+.social {
+  display: flex;
+  gap: 10px;
+}
+
+.social button {
+  background: #1e293b;
+}
