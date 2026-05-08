@@ -160,7 +160,7 @@ const payStyles = `
   padding: 14px 24px;
   background: var(--bg3);
   border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text3);
   letter-spacing: 0.5px;
@@ -178,7 +178,7 @@ const payStyles = `
 .pay-table-row:hover { background: var(--bg3); }
 .pay-project-name {
   font-weight: 500;
-  font-size: 14px;
+  font-size: 18px;
   color: var(--text);
 }
 @media(max-width:700px){
