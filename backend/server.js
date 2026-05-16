@@ -1,6 +1,6 @@
-// ============================================================
+
 //  FreelanceHub — Production-Ready Backend Server
-// ============================================================
+
 
 const express    = require("express");
 const http       = require("http");
@@ -21,9 +21,9 @@ try {
   console.log("⚠  Stripe not installed — payments disabled");
 }
 
-// ============================================================
+
 //  APP INIT
-// ============================================================
+
 const app    = express();
 const server = http.createServer(app);
 
@@ -57,9 +57,9 @@ app.use(cors({
 
 app.use(express.json({ limit: "10kb" })); // Limit body size
 
-// ============================================================
+
 //  ENV VALIDATION
-// ============================================================
+
 const PORT       = process.env.PORT      || 5001;
 const MONGO_URI  = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -73,9 +73,9 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
-// ============================================================
+
 //  RATE LIMITING
-// ============================================================
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -95,9 +95,9 @@ app.use("/signup", authLimiter);
 app.use("/projects", generalLimiter);
 app.use("/bids",     generalLimiter);
 
-// ============================================================
+
 //  HEALTH CHECK (for Render uptime monitoring)
-// ============================================================
+
 app.get("/health", (req, res) => {
   res.json({
     status:    "ok",
@@ -114,9 +114,11 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => { console.error("❌ DB Error:", err.message); process.exit(1); });
 
-// ============================================================
+
 //  MODELS WITH INDEXES
-// ============================================================
+
+
+
 const UserSchema = new mongoose.Schema({
   name:       { type: String, trim: true },
   email:      { type: String, unique: true, lowercase: true, trim: true },
@@ -127,25 +129,26 @@ const UserSchema = new mongoose.Schema({
   experience: { type: String, default: "" },
   bio:        { type: String, default: "" },
 }, { timestamps: true });
+// No inline index:true — unique:true already creates an index
 UserSchema.index({ email: 1 });
 
 const ProjectSchema = new mongoose.Schema({
   title:              { type: String, trim: true },
   description:        { type: String, trim: true },
   budget:             { type: Number, min: 1 },
-  createdBy:          { type: String, index: true },
+  createdBy:          { type: String },        // ← removed index:true (handled below)
   assigned:           { type: Boolean, default: false },
   assignedFreelancer: { type: String, default: null },
 }, { timestamps: true });
-ProjectSchema.index({ createdBy: 1, assigned: 1 });
+ProjectSchema.index({ createdBy: 1, assigned: 1 }); // compound index only
 
 const BidSchema = new mongoose.Schema({
-  projectId:       { type: String, index: true },
+  projectId:       { type: String },           // ← removed index:true (handled below)
   freelancerEmail: { type: String },
   amount:          { type: Number, min: 1 },
   message:         { type: String, default: "" },
 }, { timestamps: true });
-BidSchema.index({ projectId: 1 });
+BidSchema.index({ projectId: 1 });             // single index only
 
 const MessageSchema = new mongoose.Schema({
   sender: { type: String },
@@ -159,9 +162,8 @@ const Project = mongoose.model("Project", ProjectSchema);
 const Bid     = mongoose.model("Bid",     BidSchema);
 const Message = mongoose.model("Message", MessageSchema);
 
-// ============================================================
 //  AUTH MIDDLEWARE
-// ============================================================
+
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ message: "No token provided" });
@@ -174,9 +176,9 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-// ============================================================
+
 //  JOI VALIDATION SCHEMAS
-// ============================================================
+
 const schemas = {
   signup: Joi.object({
     name:     Joi.string().min(2).max(50).required(),
@@ -220,9 +222,9 @@ const validate = (schema) => (req, res, next) => {
   next();
 };
 
-// ============================================================
+
 //  AUTH ROUTES
-// ============================================================
+
 app.post("/signup", validate(schemas.signup), async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
@@ -256,9 +258,9 @@ app.post("/login", validate(schemas.login), async (req, res) => {
   }
 });
 
-// ============================================================
+
 //  PROFILE ROUTES
-// ============================================================
+
 app.get("/profile", authMiddleware, async (req, res) => {
   try {
     const user = await User.findOne({ email: req.user.email }).select("-password");
@@ -284,9 +286,9 @@ app.put("/profile", authMiddleware, validate(schemas.profile), async (req, res) 
   }
 });
 
-// ============================================================
+
 //  PROJECT ROUTES
-// ============================================================
+
 app.post("/projects", authMiddleware, validate(schemas.project), async (req, res) => {
   try {
     const { title, description, budget } = req.body;
@@ -326,9 +328,9 @@ app.get("/projects", async (req, res) => {
   }
 });
 
-// ============================================================
+
 //  BIDDING ROUTES
-// ============================================================
+
 app.post("/bid", authMiddleware, validate(schemas.bid), async (req, res) => {
   try {
     const { projectId, amount, message } = req.body;
@@ -372,9 +374,9 @@ app.post("/accept-bid", authMiddleware, validate(schemas.acceptBid), async (req,
   }
 });
 
-// ============================================================
+
 //  PAYMENT ROUTE
-// ============================================================
+
 app.post("/create-payment", authMiddleware, async (req, res) => {
   if (!stripe) return res.status(500).json({ message: "Stripe not configured" });
   try {
@@ -387,9 +389,9 @@ app.post("/create-payment", authMiddleware, async (req, res) => {
   }
 });
 
-// ============================================================
+
 //  CHAT ROUTES
-// ============================================================
+
 app.get("/messages/:room", async (req, res) => {
   try {
     const messages = await Message.find({ room: req.params.room })
@@ -400,9 +402,9 @@ app.get("/messages/:room", async (req, res) => {
   }
 });
 
-// ============================================================
+
 //  SOCKET.IO
-// ============================================================
+
 io.on("connection", async (socket) => {
   const room = socket.handshake.query.room || "global";
   socket.join(room);
@@ -427,17 +429,17 @@ io.on("connection", async (socket) => {
   });
 });
 
-// ============================================================
+
 //  GLOBAL ERROR HANDLER
-// ============================================================
+
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err.message);
   res.status(500).json({ message: "Internal server error" });
 });
 
-// ============================================================
+
 //  START
-// ============================================================
+
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
