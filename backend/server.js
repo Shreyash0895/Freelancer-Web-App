@@ -1,13 +1,9 @@
 // ============================================================
 //  FreelanceHub — Backend Server
-//  Improvements:
-//  ✅ Step 1 — Joi input validation on all routes
-//  ✅ Step 2 — Rate limiting on auth routes
-//  ✅ Step 3 — Helmet security headers
-//  ✅ Step 4 — Chat messages persisted in MongoDB
-//  ✅ Step 5 — Profile stored in MongoDB (not localStorage)
-//  ✅ Step 6 — Pagination on GET /projects
-//  ✅ Step 7 — MongoDB indexes for performance
+//  ✅ Fix 1 — authLimiter scoped to /signup & /login only
+//  ✅ Fix 2 — authMiddleware on /bids/:projectId & /messages/:room
+//  ✅ Fix 3 — Stripe currency changed to "usd"
+//  ✅ All original features preserved
 // ============================================================
 
 const express    = require("express");
@@ -39,9 +35,7 @@ const io     = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
-// ── Step 3: Helmet security headers ──
 app.use(helmet());
-
 app.use(cors());
 app.use(express.json());
 
@@ -58,7 +52,9 @@ if (!JWT_SECRET) {
 }
 
 // ============================================================
-//  STEP 2 — RATE LIMITING
+//  FIX 1 — RATE LIMITING (scoped correctly)
+//  authLimiter is NO LONGER applied globally.
+//  It is applied only to /signup and /login below.
 // ============================================================
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -74,7 +70,7 @@ const generalLimiter = rateLimit({
   message: { message: "Too many requests. Please slow down." },
 });
 
-app.use(authLimiter);        // auth routes get strict limiter
+// Apply general limiter to project & bid routes only
 app.use("/projects", generalLimiter);
 app.use("/bids",     generalLimiter);
 
@@ -86,7 +82,7 @@ mongoose.connect(MONGO_URI)
   .catch(err => { console.error("❌ DB Error:", err); process.exit(1); });
 
 // ============================================================
-//  STEP 7 — MODELS WITH INDEXES
+//  MODELS WITH INDEXES
 // ============================================================
 
 // User
@@ -95,45 +91,43 @@ const UserSchema = new mongoose.Schema({
   email:    { type: String, unique: true, lowercase: true, trim: true },
   password: { type: String },
   role:     { type: String, enum: ["client", "freelancer"] },
-  // Step 5 — Profile fields stored in DB
   phone:      { type: String, default: "" },
   skills:     { type: String, default: "" },
   experience: { type: String, default: "" },
   bio:        { type: String, default: "" },
 }, { timestamps: true });
 
-UserSchema.index({ email: 1 });
 
 // Project
 const ProjectSchema = new mongoose.Schema({
   title:              { type: String, trim: true },
   description:        { type: String, trim: true },
   budget:             { type: Number, min: 1 },
-  createdBy:          { type: String, index: true },
+  createdBy:          { type: String },
   assigned:           { type: Boolean, default: false },
   assignedFreelancer: { type: String, default: null },
 }, { timestamps: true });
 
-ProjectSchema.index({ createdBy: 1, assigned: 1 });  // Step 7
+ProjectSchema.index({ createdBy: 1, assigned: 1 });
 
 // Bid
 const BidSchema = new mongoose.Schema({
-  projectId:       { type: String, index: true },
+  projectId:       { type: String },
   freelancerEmail: { type: String },
   amount:          { type: Number, min: 1 },
   message:         { type: String, default: "" },
 }, { timestamps: true });
 
-BidSchema.index({ projectId: 1 });  // Step 7
+BidSchema.index({ projectId: 1 });
 
-// Step 4 — Message model for chat persistence
+// Message
 const MessageSchema = new mongoose.Schema({
   sender: { type: String },
   text:   { type: String },
   room:   { type: String, default: "global" },
 }, { timestamps: true });
 
-MessageSchema.index({ room: 1, createdAt: -1 });  // Step 7
+MessageSchema.index({ room: 1, createdAt: -1 });
 
 const User    = mongoose.model("User",    UserSchema);
 const Project = mongoose.model("Project", ProjectSchema);
@@ -160,7 +154,7 @@ const authMiddleware = (req, res, next) => {
 };
 
 // ============================================================
-//  STEP 1 — JOI VALIDATION SCHEMAS
+//  JOI VALIDATION SCHEMAS
 // ============================================================
 const schemas = {
   signup: Joi.object({
@@ -247,10 +241,11 @@ const validate = (schema) => (req, res, next) => {
 
 // ============================================================
 //  AUTH ROUTES
+//  FIX 1: authLimiter applied HERE only, not globally
 // ============================================================
 
 // SIGNUP
-app.post("/signup", validate(schemas.signup), async (req, res) => {
+app.post("/signup", authLimiter, validate(schemas.signup), async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
@@ -268,7 +263,7 @@ app.post("/signup", validate(schemas.signup), async (req, res) => {
 });
 
 // LOGIN
-app.post("/login", validate(schemas.login), async (req, res) => {
+app.post("/login", authLimiter, validate(schemas.login), async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -292,7 +287,7 @@ app.post("/login", validate(schemas.login), async (req, res) => {
 });
 
 // ============================================================
-//  STEP 5 — PROFILE ROUTES (stored in MongoDB)
+//  PROFILE ROUTES
 // ============================================================
 
 // GET profile
@@ -346,7 +341,7 @@ app.post("/projects", authMiddleware, validate(schemas.project), async (req, res
   }
 });
 
-// Step 6 — GET PROJECTS with pagination
+// GET PROJECTS with pagination, search, filter
 app.get("/projects", async (req, res) => {
   try {
     const page  = Math.max(1, parseInt(req.query.page)  || 1);
@@ -394,7 +389,6 @@ app.post("/bid", authMiddleware, validate(schemas.bid), async (req, res) => {
   try {
     const { projectId, amount, message } = req.body;
 
-    // Prevent bidding on own project
     const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ message: "Project not found" });
     if (project.createdBy === req.user.email)
@@ -402,7 +396,6 @@ app.post("/bid", authMiddleware, validate(schemas.bid), async (req, res) => {
     if (project.assigned)
       return res.status(400).json({ message: "This project is already assigned" });
 
-    // Prevent duplicate bids
     const existing = await Bid.findOne({ projectId, freelancerEmail: req.user.email });
     if (existing) return res.status(400).json({ message: "You have already placed a bid on this project" });
 
@@ -419,8 +412,8 @@ app.post("/bid", authMiddleware, validate(schemas.bid), async (req, res) => {
   }
 });
 
-// GET BIDS for a project
-app.get("/bids/:projectId", async (req, res) => {
+// FIX 2 — GET BIDS: now requires auth (was public before)
+app.get("/bids/:projectId", authMiddleware, async (req, res) => {
   try {
     const bids = await Bid.find({ projectId: req.params.projectId }).sort({ createdAt: -1 });
     res.json(bids);
@@ -455,6 +448,7 @@ app.post("/accept-bid", authMiddleware, validate(schemas.acceptBid), async (req,
 
 // ============================================================
 //  PAYMENT ROUTE
+//  FIX 3 — currency changed from "inr" to "usd"
 // ============================================================
 app.post("/create-payment", authMiddleware, async (req, res) => {
   if (!stripe) return res.status(500).json({ message: "Stripe not configured" });
@@ -465,7 +459,7 @@ app.post("/create-payment", authMiddleware, async (req, res) => {
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Number(amount),
-      currency: "inr",
+      currency: "usd",  // FIX 3: was "inr", now matches frontend $ display
     });
     res.json({ clientSecret: paymentIntent.client_secret });
   } catch (err) {
@@ -475,11 +469,12 @@ app.post("/create-payment", authMiddleware, async (req, res) => {
 });
 
 // ============================================================
-//  STEP 4 — CHAT ROUTES (messages persisted in MongoDB)
+//  CHAT ROUTES
+//  FIX 2 — GET /messages/:room now requires auth
 // ============================================================
 
 // GET last 50 messages for a room
-app.get("/messages/:room", async (req, res) => {
+app.get("/messages/:room", authMiddleware, async (req, res) => {
   try {
     const messages = await Message
       .find({ room: req.params.room })

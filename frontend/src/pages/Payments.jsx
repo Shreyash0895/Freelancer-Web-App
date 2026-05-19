@@ -16,8 +16,9 @@ export default function Payments() {
   const email = localStorage.getItem("email") || "";
 
   useEffect(() => {
-    API.get("/projects")
-      .then(r => setProjects(r.data))
+    // FIX: use ?limit=100 and read r.data.projects (not r.data)
+    API.get("/projects?limit=100")
+      .then(r => setProjects(r.data.projects || []))
       .catch(() => showToast("error", "Failed to load payments"))
       .finally(() => setLoading(false));
   }, []);
@@ -49,25 +50,25 @@ export default function Payments() {
     }
   };
 
-  const totalPaid    = assignedProjects.filter(p => paid.includes(p._id)).reduce((s,p) => s + (Number(p.budget)||0), 0);
-  const totalPending = assignedProjects.filter(p => !paid.includes(p._id)).reduce((s,p) => s + (Number(p.budget)||0), 0);
+  const totalPaid    = assignedProjects.filter(p =>  paid.includes(p._id)).reduce((s, p) => s + (Number(p.budget) || 0), 0);
+  const totalPending = assignedProjects.filter(p => !paid.includes(p._id)).reduce((s, p) => s + (Number(p.budget) || 0), 0);
 
   return (
     <div className="app-layout">
       <Sidebar />
       <main className="main-content">
         <div className="page-inner">
-          <div style={{ marginBottom:32 }}>
-            <h1 style={{ fontFamily:"'Syne',sans-serif", fontSize:30, fontWeight:800, letterSpacing:"-0.8px" }}>
+          <div style={{ marginBottom: 32 }}>
+            <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: 30, fontWeight: 800, letterSpacing: "-0.8px" }}>
               Payments
             </h1>
-            <p style={{ color:"var(--text2)", marginTop:4, fontSize:15 }}>
+            <p style={{ color: "var(--text2)", marginTop: 4, fontSize: 15 }}>
               Track all your financial transactions
             </p>
           </div>
 
           {/* Summary cards */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:20, marginBottom:36 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20, marginBottom: 36 }}>
             <SummaryCard label="Total transactions" value={assignedProjects.length} color="var(--accent2)" />
             <SummaryCard label="Paid"    value={`$${totalPaid}`}    color="var(--green)" />
             <SummaryCard label="Pending" value={`$${totalPending}`} color="var(--amber)" />
@@ -76,7 +77,7 @@ export default function Payments() {
           {/* Table */}
           {loading ? (
             <div className="empty-state">
-              <div className="spinner" style={{ margin:"0 auto", width:28, height:28 }} />
+              <div className="spinner" style={{ margin: "0 auto", width: 28, height: 28 }} />
             </div>
           ) : assignedProjects.length === 0 ? (
             <div className="empty-state">
@@ -98,10 +99,10 @@ export default function Payments() {
                 return (
                   <div key={p._id} className="pay-table-row">
                     <span className="pay-project-name">{p.title}</span>
-                    <span style={{ color:"var(--text2)", fontSize:13 }}>
+                    <span style={{ color: "var(--text2)", fontSize: 13 }}>
                       {role === "client" ? p.assignedFreelancer : p.createdBy}
                     </span>
-                    <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, color:"var(--green)" }}>
+                    <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, color: "var(--green)" }}>
                       ${p.budget}
                     </span>
                     <span>
@@ -114,14 +115,17 @@ export default function Payments() {
                         {!isPaid ? (
                           <button
                             className="btn btn-primary"
-                            style={{ padding:"7px 16px", fontSize:12 }}
+                            style={{ padding: "7px 16px", fontSize: 12 }}
                             disabled={paying === p._id}
                             onClick={() => handleStripe(p)}
                           >
-                            {paying === p._id ? <span className="spinner" style={{ width:14,height:14 }}/> : "Pay now"}
+                            {paying === p._id
+                              ? <span className="spinner" style={{ width: 14, height: 14 }} />
+                              : "Pay now"
+                            }
                           </button>
                         ) : (
-                          <span style={{ fontSize:12, color:"var(--text3)" }}>Done</span>
+                          <span style={{ fontSize: 12, color: "var(--text3)" }}>Done</span>
                         )}
                       </span>
                     )}
@@ -160,7 +164,7 @@ const payStyles = `
   padding: 14px 24px;
   background: var(--bg3);
   border-bottom: 1px solid var(--border);
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text3);
   letter-spacing: 0.5px;
@@ -178,11 +182,11 @@ const payStyles = `
 .pay-table-row:hover { background: var(--bg3); }
 .pay-project-name {
   font-weight: 500;
-  font-size: 18px;
+  font-size: 14px;
   color: var(--text);
 }
 @media(max-width:700px){
   .pay-table-head,
-  .pay-table-row { grid-template-columns: 1fr 1fr; gap:8px; }
+  .pay-table-row { grid-template-columns: 1fr 1fr; gap: 8px; }
 }
 `;
