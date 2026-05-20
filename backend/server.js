@@ -1,11 +1,3 @@
-// ============================================================
-//  FreelanceHub — Backend Server
-//  ✅ Fix 1 — authLimiter scoped to /signup & /login only
-//  ✅ Fix 2 — authMiddleware on /bids/:projectId & /messages/:room
-//  ✅ Fix 3 — Stripe currency changed to "usd"
-//  ✅ All original features preserved
-// ============================================================
-
 const express    = require("express");
 const http       = require("http");
 const { Server } = require("socket.io");
@@ -26,9 +18,9 @@ try {
   console.log("⚠  Stripe not installed — payments disabled");
 }
 
-// ============================================================
+
 //  APP INIT
-// ============================================================
+
 const app    = express();
 const server = http.createServer(app);
 const io     = new Server(server, {
@@ -39,9 +31,9 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-// ============================================================
+
 //  ENV
-// ============================================================
+
 const PORT       = process.env.PORT      || 5001;
 const MONGO_URI  = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/freelancer-app";
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -51,11 +43,7 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
-// ============================================================
-//  FIX 1 — RATE LIMITING (scoped correctly)
-//  authLimiter is NO LONGER applied globally.
-//  It is applied only to /signup and /login below.
-// ============================================================
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20,
@@ -74,16 +62,23 @@ const generalLimiter = rateLimit({
 app.use("/projects", generalLimiter);
 app.use("/bids",     generalLimiter);
 
-// ============================================================
-//  DB CONNECT
-// ============================================================
-mongoose.connect(MONGO_URI)
-  .then(() => console.log("✅ MongoDB connected"))
-  .catch(err => { console.error("❌ DB Error:", err); process.exit(1); });
 
-// ============================================================
+//  DB CONNECT
+
+mongoose.connect(MONGO_URI, {
+  serverSelectionTimeoutMS: 10000,
+  family: 4,
+})
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => {
+    console.error('❌ DB Error:', err.message);
+    console.error('💡 Tip: Change DNS to 8.8.8.8 in Network Settings, then run: ipconfig /flushdns');
+    process.exit(1);
+  });
+
+
 //  MODELS WITH INDEXES
-// ============================================================
+
 
 // User
 const UserSchema = new mongoose.Schema({
@@ -134,9 +129,8 @@ const Project = mongoose.model("Project", ProjectSchema);
 const Bid     = mongoose.model("Bid",     BidSchema);
 const Message = mongoose.model("Message", MessageSchema);
 
-// ============================================================
 //  AUTH MIDDLEWARE
-// ============================================================
+
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ message: "No token provided" });
@@ -153,9 +147,9 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-// ============================================================
+
 //  JOI VALIDATION SCHEMAS
-// ============================================================
+
 const schemas = {
   signup: Joi.object({
     name:     Joi.string().min(2).max(50).required().messages({
@@ -239,10 +233,10 @@ const validate = (schema) => (req, res, next) => {
   next();
 };
 
-// ============================================================
+
 //  AUTH ROUTES
 //  FIX 1: authLimiter applied HERE only, not globally
-// ============================================================
+
 
 // SIGNUP
 app.post("/signup", authLimiter, validate(schemas.signup), async (req, res) => {
@@ -286,9 +280,9 @@ app.post("/login", authLimiter, validate(schemas.login), async (req, res) => {
   }
 });
 
-// ============================================================
+
 //  PROFILE ROUTES
-// ============================================================
+
 
 // GET profile
 app.get("/profile", authMiddleware, async (req, res) => {
@@ -320,9 +314,9 @@ app.put("/profile", authMiddleware, validate(schemas.profile), async (req, res) 
   }
 });
 
-// ============================================================
+
 //  PROJECT ROUTES
-// ============================================================
+
 
 // CREATE PROJECT
 app.post("/projects", authMiddleware, validate(schemas.project), async (req, res) => {
@@ -380,9 +374,9 @@ app.get("/projects", async (req, res) => {
   }
 });
 
-// ============================================================
+
 //  BIDDING ROUTES
-// ============================================================
+
 
 // CREATE BID
 app.post("/bid", authMiddleware, validate(schemas.bid), async (req, res) => {
@@ -446,10 +440,10 @@ app.post("/accept-bid", authMiddleware, validate(schemas.acceptBid), async (req,
   }
 });
 
-// ============================================================
+
 //  PAYMENT ROUTE
-//  FIX 3 — currency changed from "inr" to "usd"
-// ============================================================
+
+
 app.post("/create-payment", authMiddleware, async (req, res) => {
   if (!stripe) return res.status(500).json({ message: "Stripe not configured" });
   try {
@@ -468,10 +462,10 @@ app.post("/create-payment", authMiddleware, async (req, res) => {
   }
 });
 
-// ============================================================
+
 //  CHAT ROUTES
 //  FIX 2 — GET /messages/:room now requires auth
-// ============================================================
+
 
 // GET last 50 messages for a room
 app.get("/messages/:room", authMiddleware, async (req, res) => {
@@ -488,9 +482,9 @@ app.get("/messages/:room", authMiddleware, async (req, res) => {
   }
 });
 
-// ============================================================
+
 //  SOCKET.IO — REAL-TIME CHAT WITH PERSISTENCE
-// ============================================================
+
 io.on("connection", async (socket) => {
   console.log("🔌 Client connected:", socket.id);
 
@@ -539,9 +533,9 @@ io.on("connection", async (socket) => {
   });
 });
 
-// ============================================================
+
 //  START SERVER
-// ============================================================
+
 server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
