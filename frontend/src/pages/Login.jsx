@@ -15,7 +15,7 @@ export default function Login() {
     if (!email || !password) { showToast("error", "Please fill in all fields"); return; }
     setLoading(true);
     try {
-      const res = await axios.post("http://localhost:5001/login", { email, password });
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || "http://localhost:5001"}/login`, { email, password });
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("role",  res.data.role);
       localStorage.setItem("email", email);

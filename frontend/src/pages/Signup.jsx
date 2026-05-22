@@ -20,9 +20,7 @@ export default function Signup() {
     if (form.password.length < 6)                     { showToast("error", "Password min 6 characters"); return; }
     setLoading(true);
     try {
-      await axios.post("http://localhost:5001/signup", {
-        name: form.name, email: form.email, password: form.password, role,
-      });
+      await axios.post(`${import.meta.env.VITE_API_URL || "http://localhost:5001"}/signup`, {
       showToast("success", "Account created! Please sign in.");
       setTimeout(() => navigate("/"), 700);
     } catch (err) {
