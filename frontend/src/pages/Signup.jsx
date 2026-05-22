@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { showToast } from "../utils/toast";
 
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+
 export default function Signup() {
   const navigate = useNavigate();
   const [role,    setRole]    = useState("freelancer");
@@ -20,7 +22,12 @@ export default function Signup() {
     if (form.password.length < 6)                     { showToast("error", "Password min 6 characters"); return; }
     setLoading(true);
     try {
-      await axios.post(`${import.meta.env.VITE_API_URL || "http://localhost:5001"}/signup`, {
+      await axios.post(BASE_URL + "/signup", {
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        role,
+      });
       showToast("success", "Account created! Please sign in.");
       setTimeout(() => navigate("/"), 700);
     } catch (err) {
@@ -297,8 +304,6 @@ const s = {
   },
   switchText: { textAlign: "center", fontSize: 13, color: "#7a83aa", margin: 0 },
   switchLink: { color: "#a78bfa", fontWeight: 600, cursor: "pointer", marginLeft: 4 },
-
-  // Visual side
   visual: { flex: 1, position: "relative", overflow: "hidden", minHeight: "100vh" },
   bgImg: {
     position: "absolute", top: 0, left: 0,

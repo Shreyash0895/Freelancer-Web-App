@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { showToast } from "../utils/toast";
 
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+
 export default function Login() {
   const navigate = useNavigate();
   const [email,    setEmail]    = useState("");
@@ -15,7 +17,7 @@ export default function Login() {
     if (!email || !password) { showToast("error", "Please fill in all fields"); return; }
     setLoading(true);
     try {
-      const res = await axios.post(`${import.meta.env.VITE_API_URL || "http://localhost:5001"}/login`, { email, password });
+      const res = await axios.post(BASE_URL + "/login", { email, password });
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("role",  res.data.role);
       localStorage.setItem("email", email);
@@ -97,19 +99,13 @@ export default function Login() {
             </div>
 
             <button type="submit" disabled={loading} style={loading ? { ...s.submitBtn, opacity: 0.6 } : s.submitBtn}>
-              {loading
-                ? <span style={s.spinner} />
-                : "Sign in →"
-              }
+              {loading ? <span style={s.spinner} /> : "Sign in →"}
             </button>
           </form>
 
           <p style={s.switchText}>
             Don't have an account?{" "}
-            <span
-              onClick={() => navigate("/signup")}
-              style={s.switchLink}
-            >
+            <span onClick={() => navigate("/signup")} style={s.switchLink}>
               Create one
             </span>
           </p>
@@ -186,25 +182,10 @@ const s = {
     color: "rgba(255,255,255,0.55)",
     margin: "0 0 36px 0",
   },
-  statsRow: {
-    display: "flex",
-    gap: 40,
-  },
-  statItem: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 3,
-  },
-  statNum: {
-    fontSize: 22,
-    fontWeight: 800,
-    color: "#fff",
-    fontFamily: "Georgia, serif",
-  },
-  statLabel: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.45)",
-  },
+  statsRow: { display: "flex", gap: 40 },
+  statItem: { display: "flex", flexDirection: "column", gap: 3 },
+  statNum: { fontSize: 22, fontWeight: 800, color: "#fff", fontFamily: "Georgia, serif" },
+  statLabel: { fontSize: 14, color: "rgba(255,255,255,0.45)" },
   formSide: {
     width: 460,
     flexShrink: 0,
@@ -215,9 +196,7 @@ const s = {
     background: "#0d0f1e",
     borderLeft: "1px solid rgba(255,255,255,0.07)",
   },
-  formCard: {
-    width: "100%",
-  },
+  formCard: { width: "100%" },
   logo: {
     fontSize: 20,
     fontWeight: 800,
@@ -228,9 +207,7 @@ const s = {
     backgroundClip: "text",
     letterSpacing: "-0.5px",
   },
-  logoPink: {
-    WebkitTextFillColor: "#f472b6",
-  },
+  logoPink: { WebkitTextFillColor: "#f472b6" },
   title: {
     fontSize: 30,
     fontWeight: 800,
@@ -239,27 +216,10 @@ const s = {
     letterSpacing: "-0.8px",
     fontFamily: "Georgia, serif",
   },
-  subtitle: {
-    fontSize: 16,
-    color: "#7a83aa",
-    margin: "0 0 36px 0",
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 20,
-    marginBottom: 28,
-  },
-  field: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: 500,
-    color: "#7a83aa",
-  },
+  subtitle: { fontSize: 16, color: "#7a83aa", margin: "0 0 36px 0" },
+  form: { display: "flex", flexDirection: "column", gap: 20, marginBottom: 28 },
+  field: { display: "flex", flexDirection: "column", gap: 8 },
+  label: { fontSize: 16, fontWeight: 500, color: "#7a83aa" },
   input: {
     background: "#13162a",
     border: "1px solid rgba(255,255,255,0.09)",
@@ -286,9 +246,7 @@ const s = {
     boxShadow: "0 0 0 3px rgba(108,99,255,0.15)",
     fontFamily: "inherit",
   },
-  passWrap: {
-    position: "relative",
-  },
+  passWrap: { position: "relative" },
   eyeBtn: {
     position: "absolute",
     right: 14,
@@ -329,16 +287,6 @@ const s = {
     borderRadius: "50%",
     animation: "spin 0.7s linear infinite",
   },
-  switchText: {
-    textAlign: "center",
-    fontSize: 16,
-    color: "#7a83aa",
-    margin: 0,
-  },
-  switchLink: {
-    color: "#a78bfa",
-    fontWeight: 600,
-    cursor: "pointer",
-    marginLeft: 4,
-  },
+  switchText: { textAlign: "center", fontSize: 16, color: "#7a83aa", margin: 0 },
+  switchLink: { color: "#a78bfa", fontWeight: 600, cursor: "pointer", marginLeft: 4 },
 };
