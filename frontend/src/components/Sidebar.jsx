@@ -1,18 +1,20 @@
 import { useNavigate, useLocation } from "react-router-dom";
 
 const NAV = [
-  { path: "/dashboard", icon: "⬡", label: "Dashboard" },
-  { path: "/projects",  icon: "◈", label: "Projects"  },
-  { path: "/chat",      icon: "◎", label: "Messages"  },
-  { path: "/payments",  icon: "◇", label: "Payments"  },
-  { path: "/profile",   icon: "◉", label: "Profile"   },
+  { path: "/dashboard", icon: "⬡", label: "Dashboard"  },
+  { path: "/projects",  icon: "◈", label: "Projects"   },
+  { path: "/chat",      icon: "◎", label: "Messages"   },
+  { path: "/payments",  icon: "◇", label: "Payments"   },
+  { path: "/analytics", icon: "◈", label: "Analytics"  },
+  { path: "/invoice",   icon: "🧾", label: "Invoices"   },
+  { path: "/profile",   icon: "◉", label: "Profile"    },
 ];
 
 export default function Sidebar() {
-  const navigate  = useNavigate();
-  const location  = useLocation();
-  const email     = localStorage.getItem("email") || "";
-  const role      = localStorage.getItem("role")  || "user";
+  const navigate = useNavigate();
+  const location = useLocation();
+  const email    = localStorage.getItem("email") || "";
+  const role     = localStorage.getItem("role")  || "user";
 
   const handleLogout = () => {
     localStorage.clear();
