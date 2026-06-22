@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { showToast } from "../utils/toast";
 
@@ -7,7 +7,9 @@ const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 export default function Signup() {
   const navigate = useNavigate();
-  const [role,    setRole]    = useState("freelancer");
+  const [searchParams] = useSearchParams();
+  const initialRole = searchParams.get("role") === "client" ? "client" : "freelancer";
+  const [role,    setRole]    = useState(initialRole);
   const [show,    setShow]    = useState(false);
   const [show2,   setShow2]   = useState(false);
   const [loading, setLoading] = useState(false);
@@ -29,7 +31,7 @@ export default function Signup() {
         role,
       });
       showToast("success", "Account created! Please sign in.");
-      setTimeout(() => navigate("/"), 700);
+      setTimeout(() => navigate("/login"), 700);
     } catch (err) {
       showToast("error", err.response?.data?.message || "Signup failed");
     } finally {
@@ -42,7 +44,7 @@ export default function Signup() {
       {/* ── LEFT: Form Panel ── */}
       <div style={s.formSide}>
         <div style={s.formCard}>
-          <div style={s.logo}>Freelance<span style={s.logoPink}>Hub</span></div>
+          <div style={s.logo} onClick={() => navigate("/")} role="button" tabIndex={0} aria-label="Go to homepage">Freelance<span style={s.logoPink}>Hub</span></div>
           <h1 style={s.title}>Create account</h1>
           <p style={s.subtitle}>Join thousands of clients and freelancers</p>
 
@@ -129,7 +131,7 @@ export default function Signup() {
 
           <p style={s.switchText}>
             Already have an account?{" "}
-            <span onClick={() => navigate("/")} style={s.switchLink}>Sign in</span>
+            <span onClick={() => navigate("/login")} style={s.switchLink}>Sign in</span>
           </p>
         </div>
       </div>
@@ -186,6 +188,7 @@ const s = {
   },
   formCard: { width: "100%" },
   logo: {
+    cursor: "pointer",
     fontSize: 20,
     fontWeight: 800,
     marginBottom: 32,

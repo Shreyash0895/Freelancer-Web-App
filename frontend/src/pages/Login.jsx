@@ -60,7 +60,7 @@ export default function Login() {
       {/* ── RIGHT: Form Panel ── */}
       <div style={s.formSide}>
         <div style={s.formCard}>
-          <div style={s.logo}>Freelance<span style={s.logoPink}>Hub</span></div>
+          <div style={s.logo} onClick={() => navigate("/")} role="button" tabIndex={0} aria-label="Go to homepage">Freelance<span style={s.logoPink}>Hub</span></div>
           <h1 style={s.title}>Welcome back</h1>
           <p style={s.subtitle}>Sign in to your account to continue</p>
 
@@ -198,6 +198,7 @@ const s = {
   },
   formCard: { width: "100%" },
   logo: {
+    cursor: "pointer",
     fontSize: 20,
     fontWeight: 800,
     marginBottom: 40,
