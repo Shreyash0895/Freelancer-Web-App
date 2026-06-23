@@ -1,12 +1,13 @@
 import { useNavigate, useLocation } from "react-router-dom";
+import NotificationBell from "./NotificationBell";
 
 const NAV = [
   { path: "/dashboard", icon: "⬡", label: "Dashboard"  },
   { path: "/projects",  icon: "◈", label: "Projects"   },
   { path: "/chat",      icon: "◎", label: "Messages"   },
   { path: "/payments",  icon: "◇", label: "Payments"   },
-  { path: "/analytics", icon: "◈", label: "Analytics"  },
-  { path: "/invoice",   icon: "🧾", label: "Invoices"   },
+  { path: "/analytics", icon: "▦", label: "Analytics"  },
+  { path: "/invoice",   icon: "◻", label: "Invoices"   },
   { path: "/profile",   icon: "◉", label: "Profile"    },
 ];
 
@@ -40,17 +41,31 @@ export default function Sidebar() {
       </nav>
 
       <div className="sidebar-bottom">
-        <div style={{ padding: "8px 14px 14px", fontSize: "12px", color: "var(--text3)" }}>
-          <div style={{ color: "var(--text2)", fontWeight: 500, marginBottom: 2, fontSize: 13 }}>
-            {email.split("@")[0] || "User"}
+        {/* User info row with notification bell */}
+        <div style={{
+          padding: "8px 14px 10px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+        }}>
+          <div>
+            <div style={{ color: "var(--text2)", fontWeight: 500, fontSize: 13 }}>
+              {email.split("@")[0] || "User"}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "capitalize" }}>
+              {role}
+            </div>
           </div>
-          <div style={{ textTransform: "capitalize" }}>{role}</div>
+          <NotificationBell />
         </div>
-        <button className="logout-btn" onClick={handleLogout}>
-          <span>⬡</span> Sign out
-        </button>
+
+        <div style={{ padding: "0 8px 8px" }}>
+          <button className="logout-btn" onClick={handleLogout}>
+            <span>⬡</span> Sign out
+          </button>
+        </div>
       </div>
     </aside>
   );
 }
-
