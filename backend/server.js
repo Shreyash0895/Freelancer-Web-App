@@ -11,6 +11,34 @@ const Joi        = require("joi");
 const nodemailer = require("nodemailer");
 require("dotenv").config();
 
+//AI Proposal Generator
+const Anthropic = require("@anthropic-ai/sdk");
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+app.post("/ai/generate-proposal", authMiddleware, async (req, res) => {
+  try {
+    const { projectTitle, projectDescription, budget, freelancerSkills } = req.body;
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 400,
+      messages: [{
+        role: "user",
+        content: `Write a professional freelancer bid proposal for this project:
+Project: ${projectTitle}
+Description: ${projectDescription}
+Budget: $${budget}
+My skills: ${freelancerSkills}
+
+Write 3-4 sentences. Be confident, specific, and professional. No generic phrases.`
+      }]
+    });
+    res.json({ proposal: message.content[0].text });
+  } catch (err) {
+    res.status(500).json({ message: "AI generation failed" });
+  }
+});
+
 // ── Cloudinary + Multer ──
 let cloudinary, multer, CloudinaryStorage;
 try {
@@ -144,6 +172,7 @@ const UserSchema = new mongoose.Schema({
   bio: { type: String, default: "" },
 }, { timestamps: true });
 
+//Project Schema
 const ProjectSchema = new mongoose.Schema({
   title: { type: String, trim: true },
   description: { type: String, trim: true },
@@ -281,6 +310,89 @@ app.post("/login", authLimiter, validate(schemas.login), async (req, res) => {
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ message: "Login failed." });
+  }
+});
+
+app.post("/ai/estimate-project", authMiddleware, async (req, res) => {
+  try {
+    const { title, description } = req.body;
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 300,
+      messages: [{
+        role: "user",
+        content: `Estimate this freelance project. Reply ONLY as JSON:
+{
+  "timeline": "X-Y weeks",
+  "budgetMin": number,
+  "budgetMax": number,
+  "complexity": "Low|Medium|High",
+  "tips": ["tip1", "tip2", "tip3"]
+}
+
+Project: ${title}
+Description: ${description}`
+      }]
+    });
+    const raw = message.content[0].text;
+    const json = JSON.parse(raw.replace(/```json|```/g, "").trim());
+    res.json(json);
+  } catch (err) {
+    res.status(500).json({ message: "Estimation failed" });
+  }
+});
+
+//video meet
+app.post("/meetings/create", authMiddleware, async (req, res) => {
+  try {
+    const { projectId } = req.body;
+    const project = await Project.findById(projectId);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    // Only client or freelancer can create meeting
+    const isParticipant =
+      project.createdBy === req.user.email ||
+      project.assignedFreelancer === req.user.email;
+    if (!isParticipant)
+      return res.status(403).json({ message: "Not authorized" });
+
+    const response = await fetch("https://api.daily.co/v1/rooms", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.DAILY_API_KEY}`,
+      },
+      body: JSON.stringify({
+        name: `freelancehub-${projectId}`,
+        properties: {
+          exp: Math.floor(Date.now() / 1000) + (60 * 60), // 1 hour
+          enable_chat: true,
+          enable_screenshare: true,
+        },
+      }),
+    });
+
+    const room = await response.json();
+
+    // Notify the other party
+    const notifyEmail =
+      project.createdBy === req.user.email
+        ? project.assignedFreelancer
+        : project.createdBy;
+
+    if (notifyEmail) {
+      await createNotification(
+        notifyEmail,
+        "meeting",
+        `${req.user.email} started a video meeting for "${project.title}"`,
+        "/chat"
+      );
+    }
+
+    res.json({ url: room.url, name: room.name });
+  } catch (err) {
+    console.error("Meeting error:", err);
+    res.status(500).json({ message: "Failed to create meeting" });
   }
 });
 

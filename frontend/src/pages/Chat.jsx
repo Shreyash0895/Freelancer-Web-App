@@ -90,6 +90,26 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+const startMeeting = async () => {
+  if (!activeRoom || activeRoom.isGlobal) return;
+  const projectId = activeRoom.projectId;
+  try {
+    const res = await API.post("/meetings/create", { projectId });
+    // Open in new tab
+    window.open(res.data.url, "_blank");
+    showToast("success", "Meeting started! Share the link with your client/freelancer.");
+  } catch {
+    showToast("error", "Failed to create meeting");
+  }
+};
+
+// In the chat topbar:
+{!activeRoom?.isGlobal && (
+  <button onClick={startMeeting} style={meetingBtn}>
+    📹 Start Meeting
+  </button>
+)}
+
   const send = (e) => {
     e?.preventDefault();
     if (!msg.trim() || !socket || !activeRoom) return;

@@ -39,12 +39,63 @@ export default function Projects() {
   // Reset to page 1 when search/filter changes
   useEffect(() => { setPage(1); }, [search, filter]);
 
+  //Generate with AI button inside your bid form
+const generateProposal = async () => {
+  setGenerating(true);
+  try {
+    const skills = localStorage.getItem("skills") || "web development";
+    const res = await API.post("/ai/generate-proposal", {
+      projectTitle: project.title,
+      projectDescription: project.description,
+      budget: project.budget,
+      freelancerSkills: skills,
+    });
+    setBidMessage(res.data.proposal);
+  } catch {
+    showToast("error", "AI generation failed");
+  } finally {
+    setGenerating(false);
+  }
+};
+
+// In your bid form JSX:
+<>
+  <button
+    type="button"
+    onClick={generateProposal}
+    disabled={generating}
+    style={{ ...btnStyle, background: "linear-gradient(135deg,#6c63ff,#a78bfa)" }}
+  >
+    {generating ? "✨ Generating..." : "✨ Generate with AI"}
+  </button>
+  <textarea
+    value={bidMessage}
+    onChange={e => setBidMessage(e.target.value)}
+    placeholder="Your proposal..."
+    rows={4}
+    style={{
+      width: "100%",
+      background: "#13162a",
+      border: "1px solid rgba(255,255,255,0.09)",
+      borderRadius: 10,
+      padding: "12px 14px",
+      color: "#f0f0ff",
+      fontSize: 14,
+      fontFamily: "inherit",
+      resize: "vertical",
+      outline: "none",
+      marginTop: 8,
+    }}
+  />
+</>
   // Debounce search
   const [searchInput, setSearchInput] = useState("");
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 400);
     return () => clearTimeout(t);
   }, [searchInput]);
+
+  
 
   return (
     <div style={s.layout}>
