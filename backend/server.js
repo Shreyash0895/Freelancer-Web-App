@@ -1,4 +1,3 @@
-//  FreelanceHub — Backend Server
 const express    = require("express");
 const http       = require("http");
 const { Server } = require("socket.io");
@@ -47,8 +46,9 @@ try {
   console.log("⚠  Anthropic SDK not installed — AI features disabled");
 }
 
+// ============================================================
 //  APP INIT
-
+// ============================================================
 const app    = express();
 const server = http.createServer(app);
 const io     = new Server(server, {
@@ -65,8 +65,9 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// ============================================================
 //  ENV VALIDATION
-
+// ============================================================
 const PORT       = process.env.PORT      || 5001;
 const MONGO_URI  = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/freelancer-app";
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -76,8 +77,9 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
+// ============================================================
 //  MULTER + CLOUDINARY UPLOAD CONFIG
-
+// ============================================================
 let upload;
 if (cloudinary && multer && CloudinaryStorage) {
   const storage = new CloudinaryStorage({
@@ -94,8 +96,9 @@ if (cloudinary && multer && CloudinaryStorage) {
   upload = { single: () => (req, res, next) => next() };
 }
 
+// ============================================================
 //  EMAIL SETUP (Nodemailer)
-
+// ============================================================
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
@@ -144,7 +147,9 @@ const emailTemplates = {
   }),
 };
 
+// ============================================================
 //  RATE LIMITING
+// ============================================================
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, max: 20,
   message: { message: "Too many attempts. Try again in 15 minutes." },
@@ -156,12 +161,16 @@ const generalLimiter = rateLimit({
 app.use("/projects", generalLimiter);
 app.use("/bids",     generalLimiter);
 
+// ============================================================
 //  MONGODB CONNECTION
+// ============================================================
 mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 10000, family: 4 })
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => { console.error("❌ DB Error:", err.message); process.exit(1); });
 
+// ============================================================
 //  MONGOOSE MODELS
+// ============================================================
 
 const UserSchema = new mongoose.Schema({
   name:       { type: String, trim: true },
@@ -253,8 +262,9 @@ const Review       = mongoose.model("Review",       ReviewSchema);
 const Notification = mongoose.model("Notification", NotificationSchema);
 const Escrow       = mongoose.model("Escrow",       EscrowSchema);
 
+// ============================================================
 //  AUTH MIDDLEWARE
-
+// ============================================================
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ message: "No token provided" });
@@ -277,9 +287,9 @@ async function canAccessRoom(userEmail, room) {
   return project.createdBy === userEmail || project.assignedFreelancer === userEmail;
 }
 
-
+// ============================================================
 //  JOI VALIDATION SCHEMAS
-
+// ============================================================
 const schemas = {
   signup:    Joi.object({ name: Joi.string().min(2).max(50).required(), email: Joi.string().email().required(), password: Joi.string().min(6).max(100).required(), role: Joi.string().valid("client","freelancer").required() }),
   login:     Joi.object({ email: Joi.string().email().required(), password: Joi.string().required() }),
@@ -302,8 +312,9 @@ const createNotification = async (userEmail, type, message, link = "/dashboard")
   catch (err) { console.error("Notification error:", err.message); }
 };
 
+// ============================================================
 //  AUTH ROUTES
-
+// ============================================================
 app.post("/signup", authLimiter, validate(schemas.signup), async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
@@ -338,8 +349,9 @@ app.post("/login", authLimiter, validate(schemas.login), async (req, res) => {
   }
 });
 
+// ============================================================
 //  PROFILE ROUTES
-
+// ============================================================
 app.get("/profile", authMiddleware, async (req, res) => {
   try {
     const user = await User.findOne({ email: req.user.email }).select("-password");
@@ -372,9 +384,9 @@ app.get("/profile/:email", authMiddleware, async (req, res) => {
   } catch { res.status(500).json({ message: "Failed to fetch profile" }); }
 });
 
-
+// ============================================================
 //  PROJECT ROUTES
-
+// ============================================================
 app.post("/projects", authMiddleware, validate(schemas.project), async (req, res) => {
   try {
     const { title, description, budget, category } = req.body;
@@ -464,8 +476,9 @@ app.post("/projects/:id/complete", authMiddleware, async (req, res) => {
   } catch { res.status(500).json({ message: "Failed to complete project" }); }
 });
 
+// ============================================================
 //  FILE UPLOAD ROUTES
-
+// ============================================================
 app.post("/projects/:id/upload", authMiddleware, upload.single("file"), async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
@@ -517,8 +530,9 @@ app.delete("/projects/:id/files/:fileIndex", authMiddleware, async (req, res) =>
   } catch { res.status(500).json({ message: "Failed to delete file" }); }
 });
 
+// ============================================================
 //  BID ROUTES
-
+// ============================================================
 app.post("/bid", authMiddleware, validate(schemas.bid), async (req, res) => {
   try {
     const { projectId, amount, message } = req.body;
@@ -572,8 +586,9 @@ app.post("/accept-bid", authMiddleware, validate(schemas.acceptBid), async (req,
   }
 });
 
+// ============================================================
 //  PAYMENT ROUTE (Stripe)
-
+// ============================================================
 app.post("/create-payment", authMiddleware, async (req, res) => {
   if (!stripe) return res.status(500).json({ message: "Stripe not configured" });
   try {
@@ -590,8 +605,9 @@ app.post("/create-payment", authMiddleware, async (req, res) => {
   }
 });
 
+// ============================================================
 //  ESCROW ROUTES
-
+// ============================================================
 app.post("/escrow/deposit", authMiddleware, async (req, res) => {
   try {
     const { projectId } = req.body;
@@ -662,8 +678,9 @@ app.get("/escrow/:projectId", authMiddleware, async (req, res) => {
   } catch { res.status(500).json({ message: "Failed to fetch escrow" }); }
 });
 
+// ============================================================
 //  NOTIFICATIONS
-
+// ============================================================
 app.get("/notifications", authMiddleware, async (req, res) => {
   try {
     const notifications = await Notification
@@ -682,8 +699,9 @@ app.put("/notifications/read", authMiddleware, async (req, res) => {
   } catch { res.status(500).json({ message: "Failed to mark notifications" }); }
 });
 
+// ============================================================
 //  REVIEWS
-
+// ============================================================
 app.post("/reviews", authMiddleware, validate(schemas.review), async (req, res) => {
   try {
     const { projectId, rating, comment } = req.body;
@@ -727,8 +745,9 @@ app.get("/reviews/check/:projectId", authMiddleware, async (req, res) => {
   } catch { res.status(500).json({ message: "Failed to check review" }); }
 });
 
+// ============================================================
 //  CHAT ROUTES
-
+// ============================================================
 app.get("/my-chats", authMiddleware, async (req, res) => {
   try {
     const email    = req.user.email;
@@ -768,8 +787,9 @@ app.get("/messages/:room", authMiddleware, async (req, res) => {
   } catch { res.status(500).json({ message: "Failed to fetch messages" }); }
 });
 
+// ============================================================
 //  AI ROUTES (Claude via Anthropic SDK)
-
+// ============================================================
 
 // AI Proposal Generator
 app.post("/ai/generate-proposal", authMiddleware, async (req, res) => {
@@ -840,8 +860,9 @@ Description: ${description}`,
   }
 });
 
+// ============================================================
 //  VIDEO MEETING (Daily.co)
-
+// ============================================================
 app.post("/meetings/create", authMiddleware, async (req, res) => {
   if (!process.env.DAILY_API_KEY)
     return res.status(503).json({ message: "Video meetings not configured. Add DAILY_API_KEY to .env" });
@@ -894,7 +915,6 @@ app.post("/meetings/create", authMiddleware, async (req, res) => {
 });
 
 //  SOCKET.IO — Real-time chat with room-based auth
-
 io.on("connection", async (socket) => {
   console.log("🔌 Client connected:", socket.id);
 
@@ -950,8 +970,9 @@ io.on("connection", async (socket) => {
   socket.on("disconnect", () => console.log("❌ Disconnected:", socket.id));
 });
 
+// ============================================================
 //  START SERVER
-
+// ============================================================
 server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

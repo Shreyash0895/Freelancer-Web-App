@@ -1,21 +1,16 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import API from "../api/api";
 import { showToast } from "../utils/toast";
 
 export default function Profile() {
-  const navigate = useNavigate();
   const email = localStorage.getItem("email") || "";
   const role  = localStorage.getItem("role")  || "";
 
-  const [form, setForm] = useState({
-    name: "", phone: "", skills: "", experience: "", bio: "",
-  });
-  const [loading,  setLoading]  = useState(true);
-  const [saving,   setSaving]   = useState(false);
+  const [form, setForm] = useState({ name:"", phone:"", skills:"", experience:"", bio:"" });
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState(false);
 
-  // ── Fetch profile from MongoDB on mount ──
   useEffect(() => {
     API.get("/profile")
       .then(r => {
@@ -41,21 +36,30 @@ export default function Profile() {
       await API.put("/profile", form);
       showToast("success", "Profile saved!");
     } catch (err) {
-      showToast("error", err.response?.data?.message || "Failed to save profile");
+      showToast("error", err.response?.data?.message || "Failed to save");
     } finally {
       setSaving(false);
     }
   };
 
-  const initials = (form.name || email || "U").slice(0, 2).toUpperCase();
+  const initials  = (form.name || email || "U").slice(0, 2).toUpperCase();
+  const skillList = form.skills.split(",").map(s => s.trim()).filter(Boolean);
+
+  const avatarColors = [
+    "linear-gradient(135deg, #6c63ff, #f472b6)",
+    "linear-gradient(135deg, #22d3ee, #6c63ff)",
+    "linear-gradient(135deg, #34d399, #22d3ee)",
+    "linear-gradient(135deg, #f472b6, #fbbf24)",
+  ];
+  const avatarColor = avatarColors[(email.charCodeAt(0) || 0) % avatarColors.length];
 
   if (loading) {
     return (
-      <div style={s.layout}>
+      <div className="app-layout">
         <Sidebar />
-        <main style={s.main}>
-          <div style={s.center}>
-            <div style={s.spinner} />
+        <main className="main-content">
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", minHeight:"60vh" }}>
+            <div className="spinner" style={{ width:36, height:36, borderWidth:3 }} />
           </div>
         </main>
       </div>
@@ -63,116 +67,147 @@ export default function Profile() {
   }
 
   return (
-    <div style={s.layout}>
+    <div className="app-layout">
       <Sidebar />
-      <main style={s.main}>
-        <div style={s.inner}>
+      <main className="main-content">
+        <div className="page-inner">
 
-          {/* Header */}
-          <div style={s.pageHeader}>
-            <h1 style={s.pageTitle}>My Profile</h1>
-            <p style={s.pageSub}>Your information is saved securely to your account</p>
+          <div className="page-header">
+            <h1>My Profile</h1>
+            <p>Your information is saved securely to your account</p>
           </div>
 
           <div style={s.grid}>
             {/* ── Avatar card ── */}
             <div style={s.avatarCard}>
-              <div style={s.avatar}>{initials}</div>
+              <div style={{ ...s.avatar, background: avatarColor }}>{initials}</div>
               <h3 style={s.avatarName}>{form.name || "Your Name"}</h3>
               <p style={s.avatarEmail}>{email}</p>
-              <span style={role === "client" ? s.badgeCyan : s.badgePurple}>
+              <span className={`badge ${role === "client" ? "badge-cyan" : "badge-purple"}`}
+                style={{ marginTop: 4, textTransform: "capitalize" }}>
                 {role}
               </span>
-              {form.skills && (
+
+              {skillList.length > 0 && (
                 <div style={s.skillsWrap}>
-                  {form.skills.split(",").map(sk => sk.trim()).filter(Boolean).map(sk => (
+                  {skillList.map(sk => (
                     <span key={sk} style={s.skillTag}>{sk}</span>
                   ))}
                 </div>
               )}
-              {form.bio && <p style={s.bioPrev}>{form.bio}</p>}
+
+              {form.experience && (
+                <div style={s.expBadge}>
+                  🎯 {form.experience} experience
+                </div>
+              )}
+
+              {form.bio && (
+                <p style={s.bioPrev}>{form.bio}</p>
+              )}
+
+              {/* Stats row */}
+              <div style={s.miniStats}>
+                <div style={s.miniStat}>
+                  <div style={s.miniStatNum}>{skillList.length}</div>
+                  <div style={s.miniStatLabel}>Skills</div>
+                </div>
+                <div style={s.miniStatDivider} />
+                <div style={s.miniStat}>
+                  <div style={s.miniStatNum}>{role === "client" ? "C" : "F"}</div>
+                  <div style={s.miniStatLabel}>Role</div>
+                </div>
+              </div>
             </div>
 
             {/* ── Edit form ── */}
             <div style={s.formCard}>
-              <h2 style={s.formTitle}>Edit information</h2>
+              <h2 style={s.formTitle}>Edit Information</h2>
               <form onSubmit={save}>
                 <div style={s.formGrid}>
-                  <div style={s.field}>
-                    <label style={s.label}>Full name</label>
+                  <div className="form-group">
+                    <label className="form-label">Full name</label>
                     <input
-                      style={s.input}
+                      className="form-input"
                       value={form.name}
                       onChange={set("name")}
                       placeholder="John Doe"
-                      onFocus={e => Object.assign(e.target.style, s.inputFocus)}
-                      onBlur={e => Object.assign(e.target.style, s.input)}
                     />
                   </div>
 
-                  <div style={s.field}>
-                    <label style={s.label}>Phone</label>
+                  <div className="form-group">
+                    <label className="form-label">Phone</label>
                     <input
-                      style={s.input}
+                      className="form-input"
                       value={form.phone}
                       onChange={set("phone")}
                       placeholder="+91 98765 43210"
-                      onFocus={e => Object.assign(e.target.style, s.inputFocus)}
-                      onBlur={e => Object.assign(e.target.style, s.input)}
                     />
                   </div>
 
-                  <div style={s.field}>
-                    <label style={s.label}>Email (cannot change)</label>
-                    <input style={{ ...s.input, opacity: 0.45, cursor: "not-allowed" }} value={email} disabled />
-                  </div>
-
-                  <div style={s.field}>
-                    <label style={s.label}>Role</label>
-                    <input style={{ ...s.input, opacity: 0.45, cursor: "not-allowed", textTransform: "capitalize" }} value={role} disabled />
-                  </div>
-
-                  <div style={s.field}>
-                    <label style={s.label}>Skills <span style={s.hint}>(comma separated)</span></label>
+                  <div className="form-group">
+                    <label className="form-label">Email (cannot change)</label>
                     <input
-                      style={s.input}
-                      value={form.skills}
-                      onChange={set("skills")}
-                      placeholder="React, Node.js, MongoDB"
-                      onFocus={e => Object.assign(e.target.style, s.inputFocus)}
-                      onBlur={e => Object.assign(e.target.style, s.input)}
+                      className="form-input"
+                      value={email}
+                      disabled
+                      style={{ opacity: 0.45, cursor: "not-allowed" }}
                     />
                   </div>
 
-                  <div style={s.field}>
-                    <label style={s.label}>Experience</label>
+                  <div className="form-group">
+                    <label className="form-label">Experience</label>
                     <input
-                      style={s.input}
+                      className="form-input"
                       value={form.experience}
                       onChange={set("experience")}
                       placeholder="2 years"
-                      onFocus={e => Object.assign(e.target.style, s.inputFocus)}
-                      onBlur={e => Object.assign(e.target.style, s.input)}
                     />
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                    <label className="form-label">
+                      Skills <span style={{ color:"var(--text3)", fontWeight:400 }}>(comma separated)</span>
+                    </label>
+                    <input
+                      className="form-input"
+                      value={form.skills}
+                      onChange={set("skills")}
+                      placeholder="React, Node.js, MongoDB"
+                    />
+                    {skillList.length > 0 && (
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:8 }}>
+                        {skillList.map(sk => (
+                          <span key={sk} style={s.skillPreview}>{sk}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div style={{ ...s.field, marginTop: 4 }}>
-                  <label style={s.label}>Bio</label>
+                <div className="form-group" style={{ marginTop: 4 }}>
+                  <label className="form-label">Bio</label>
                   <textarea
-                    style={s.textarea}
+                    className="form-input"
                     value={form.bio}
                     onChange={set("bio")}
                     placeholder="Tell clients a little about yourself..."
-                    onFocus={e => Object.assign(e.target.style, { ...s.inputFocus, minHeight: "100px" })}
-                    onBlur={e => Object.assign(e.target.style, { ...s.textarea })}
+                    rows={4}
+                    style={{ resize: "vertical" }}
                   />
                 </div>
 
                 <div style={s.formFooter}>
-                  <p style={s.savedNote}>✦ Profile is saved to your MongoDB account</p>
-                  <button type="submit" disabled={saving} style={saving ? { ...s.saveBtn, opacity: 0.6 } : s.saveBtn}>
-                    {saving ? <span style={s.spinner} /> : "Save changes"}
+                  <p style={{ fontSize:12, color:"var(--text3)" }}>
+                    ✦ Saved to your MongoDB account
+                  </p>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={saving}
+                    style={{ padding:"12px 28px" }}
+                  >
+                    {saving ? <span className="spinner" /> : "Save changes"}
                   </button>
                 </div>
               </form>
@@ -185,85 +220,37 @@ export default function Profile() {
 }
 
 const s = {
-  layout:    { display: "flex", minHeight: "100vh", fontFamily: "'Segoe UI', system-ui, sans-serif", background: "#07080f" },
-  main:      { flex: 1, overflowY: "auto", background: "radial-gradient(ellipse at 10% 10%, rgba(108,99,255,0.06) 0%, transparent 55%), #07080f" },
-  inner:     { padding: "44px 52px", maxWidth: 1100 },
-  center:    { display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" },
-  pageHeader:{ marginBottom: 36 },
-  pageTitle: { fontSize: 34, fontWeight: 800, color: "#f0f0ff", margin: "0 0 8px", letterSpacing: "-1px", fontFamily: "Georgia, serif" },
-  pageSub:   { fontSize: 15, color: "#7a83aa", margin: 0 },
+  grid: { display:"grid", gridTemplateColumns:"260px 1fr", gap:24, alignItems:"start" },
 
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "260px 1fr",
-    gap: 28,
-    alignItems: "start",
-  },
-
-  // Avatar card
   avatarCard: {
-    background: "#0d0f1e",
-    border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: 18,
-    padding: "32px 24px",
-    textAlign: "center",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 10,
+    background:"var(--bg2)", border:"1px solid var(--border)",
+    borderRadius:18, padding:"32px 24px",
+    textAlign:"center", display:"flex",
+    flexDirection:"column", alignItems:"center", gap:10,
   },
   avatar: {
-    width: 80, height: 80,
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #6c63ff, #f472b6)",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: 28, fontWeight: 800, color: "#fff",
-    fontFamily: "Georgia, serif",
-    marginBottom: 6,
+    width:80, height:80, borderRadius:"50%",
+    display:"flex", alignItems:"center", justifyContent:"center",
+    fontSize:28, fontWeight:800, color:"#fff",
+    fontFamily:"'Syne', sans-serif", marginBottom:4,
+    boxShadow:"0 8px 24px rgba(0,0,0,0.3)",
   },
-  avatarName:  { fontSize: 18, fontWeight: 700, color: "#f0f0ff", margin: 0 },
-  avatarEmail: { fontSize: 13, color: "#7a83aa", margin: 0, wordBreak: "break-all" },
-  badgePurple: { padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: "rgba(129,140,248,0.15)", color: "#818cf8", textTransform: "capitalize" },
-  badgeCyan:   { padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: "rgba(34,211,238,0.12)", color: "#22d3ee", textTransform: "capitalize" },
-  skillsWrap:  { display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginTop: 4 },
-  skillTag:    { padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "rgba(108,99,255,0.15)", color: "#a78bfa" },
-  bioPrev:     { fontSize: 13, color: "#7a83aa", lineHeight: 1.6, margin: "4px 0 0", textAlign: "left" },
+  avatarName:  { fontSize:18, fontWeight:700, color:"var(--text)", margin:0, fontFamily:"'Syne', sans-serif" },
+  avatarEmail: { fontSize:12, color:"var(--text3)", margin:0, wordBreak:"break-all" },
+  skillsWrap:  { display:"flex", flexWrap:"wrap", gap:6, justifyContent:"center", marginTop:4 },
+  skillTag:    { padding:"4px 10px", borderRadius:20, fontSize:11, fontWeight:600, background:"rgba(108,99,255,0.15)", color:"#a78bfa" },
+  expBadge:    { fontSize:12, color:"var(--text2)", background:"var(--bg3)", padding:"6px 12px", borderRadius:20, border:"1px solid var(--border)" },
+  bioPrev:     { fontSize:12, color:"var(--text3)", lineHeight:1.6, margin:"4px 0 0", textAlign:"left" },
 
-  // Form card
-  formCard:  { background: "#0d0f1e", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, padding: "36px 36px" },
-  formTitle: { fontSize: 20, fontWeight: 700, color: "#f0f0ff", margin: "0 0 28px", fontFamily: "Georgia, serif" },
-  formGrid:  { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 },
-  field:     { display: "flex", flexDirection: "column", gap: 8 },
-  label:     { fontSize: 13, fontWeight: 500, color: "#7a83aa" },
-  hint:      { fontSize: 11, color: "#4a5280", fontWeight: 400 },
-  input: {
-    background: "#13162a", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 11,
-    padding: "12px 16px", fontSize: 14, color: "#f0f0ff", width: "100%",
-    outline: "none", boxSizing: "border-box", fontFamily: "inherit",
-  },
-  inputFocus: {
-    background: "#181c35", border: "1px solid #6c63ff", borderRadius: 11,
-    padding: "12px 16px", fontSize: 14, color: "#f0f0ff", width: "100%",
-    outline: "none", boxSizing: "border-box", boxShadow: "0 0 0 3px rgba(108,99,255,0.15)", fontFamily: "inherit",
-  },
-  textarea: {
-    background: "#13162a", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 11,
-    padding: "12px 16px", fontSize: 14, color: "#f0f0ff", width: "100%",
-    outline: "none", boxSizing: "border-box", fontFamily: "inherit",
-    minHeight: 100, resize: "vertical", lineHeight: 1.6,
-  },
-  formFooter: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 28, flexWrap: "wrap", gap: 12 },
-  savedNote:  { fontSize: 13, color: "#4a5280" },
-  saveBtn: {
-    padding: "13px 28px", borderRadius: 12, border: "none",
-    background: "linear-gradient(135deg, #6c63ff, #a78bfa)",
-    color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer",
-    display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit",
-    boxShadow: "0 4px 20px rgba(108,99,255,0.35)",
-  },
-  spinner: {
-    display: "inline-block", width: 16, height: 16,
-    border: "2px solid rgba(255,255,255,0.25)", borderTopColor: "#fff",
-    borderRadius: "50%", animation: "spin 0.7s linear infinite",
-  },
+  miniStats:       { display:"flex", alignItems:"center", gap:16, marginTop:4, padding:"12px 0 0", borderTop:"1px solid var(--border)", width:"100%" },
+  miniStat:        { flex:1, textAlign:"center" },
+  miniStatNum:     { fontSize:20, fontWeight:800, color:"var(--text)", fontFamily:"'Syne', sans-serif" },
+  miniStatLabel:   { fontSize:11, color:"var(--text3)", marginTop:2 },
+  miniStatDivider: { width:1, height:32, background:"var(--border)" },
+
+  formCard:  { background:"var(--bg2)", border:"1px solid var(--border)", borderRadius:18, padding:"32px 32px" },
+  formTitle: { fontSize:20, fontWeight:700, color:"var(--text)", margin:"0 0 24px", fontFamily:"'Syne', sans-serif" },
+  formGrid:  { display:"grid", gridTemplateColumns:"1fr 1fr", gap:18, marginBottom:18 },
+  formFooter:{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:24, flexWrap:"wrap", gap:12 },
+  skillPreview: { padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:600, background:"rgba(108,99,255,0.12)", color:"#a78bfa", border:"1px solid rgba(108,99,255,0.2)" },
 };
