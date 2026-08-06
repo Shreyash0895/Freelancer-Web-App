@@ -2,8 +2,9 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import "./styles/global.css";
+import "./styles/mobile.css";
 
-// ── Global Error Boundary — catches blank screen crashes ──
+// ── Global Error Boundary — prevents blank white screen on crashes ──
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -37,6 +38,7 @@ class ErrorBoundary extends React.Component {
             padding: "40px",
             maxWidth: 480,
             textAlign: "center",
+            width: "100%",
           }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
             <h2 style={{ color: "#f0f0ff", fontSize: 22, fontWeight: 700, margin: "0 0 12px" }}>
@@ -45,21 +47,29 @@ class ErrorBoundary extends React.Component {
             <p style={{ color: "#7a83aa", fontSize: 14, margin: "0 0 24px", lineHeight: 1.6 }}>
               {this.state.error?.message || "An unexpected error occurred."}
             </p>
-            <button
-              onClick={() => window.location.reload()}
-              style={{
-                padding: "12px 28px",
-                borderRadius: 10,
-                border: "none",
-                background: "linear-gradient(135deg, #6c63ff, #a78bfa)",
-                color: "#fff",
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Reload Page
-            </button>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <button
+                onClick={() => this.setState({ hasError: false, error: null })}
+                style={{
+                  padding: "11px 24px", borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: "transparent", color: "#9098c0",
+                  fontSize: 14, fontWeight: 600, cursor: "pointer",
+                }}
+              >
+                Try again
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  padding: "11px 24px", borderRadius: 10, border: "none",
+                  background: "linear-gradient(135deg, #6c63ff, #a78bfa)",
+                  color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer",
+                }}
+              >
+                Reload Page
+              </button>
+            </div>
           </div>
         </div>
       );
