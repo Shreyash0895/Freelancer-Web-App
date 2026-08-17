@@ -188,7 +188,6 @@ function ClientAnalytics({ projects, email }) {
   );
 }
 
-
 //  FREELANCER ANALYTICS
 
 function FreelancerAnalytics({ projects, email }) {

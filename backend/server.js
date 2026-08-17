@@ -46,7 +46,9 @@ try {
   console.log("⚠  Anthropic SDK not installed — AI features disabled");
 }
 
+
 //  APP INIT
+
 const app    = express();
 const server = http.createServer(app);
 const io     = new Server(server, {
@@ -140,7 +142,6 @@ const emailTemplates = {
 };
 
 //  RATE LIMITING
-
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, max: 20,
   message: { message: "Too many attempts. Try again in 15 minutes." },
@@ -152,9 +153,7 @@ const generalLimiter = rateLimit({
 app.use("/projects", generalLimiter);
 app.use("/bids",     generalLimiter);
 
-
 //  MONGODB CONNECTION
-
 mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 10000, family: 4 })
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => { console.error("❌ DB Error:", err.message); process.exit(1); });
@@ -251,6 +250,7 @@ const Review       = mongoose.model("Review",       ReviewSchema);
 const Notification = mongoose.model("Notification", NotificationSchema);
 const Escrow       = mongoose.model("Escrow",       EscrowSchema);
 
+
 //  AUTH MIDDLEWARE
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -296,6 +296,7 @@ const createNotification = async (userEmail, type, message, link = "/dashboard")
   try { await Notification.create({ userEmail, type, message, link }); }
   catch (err) { console.error("Notification error:", err.message); }
 };
+
 
 //  AUTH ROUTES
 app.post("/signup", authLimiter, validate(schemas.signup), async (req, res) => {
@@ -365,7 +366,9 @@ app.get("/profile/:email", authMiddleware, async (req, res) => {
   } catch { res.status(500).json({ message: "Failed to fetch profile" }); }
 });
 
+// ============================================================
 //  PROJECT ROUTES
+// ============================================================
 app.post("/projects", authMiddleware, validate(schemas.project), async (req, res) => {
   try {
     const { title, description, budget, category } = req.body;
@@ -413,7 +416,7 @@ app.get("/projects/:id", authMiddleware, async (req, res) => {
   } catch { res.status(500).json({ message: "Failed to fetch project" }); }
 });
 
-// ✅ Mark project as PAID in MongoDB
+//  Mark project as PAID in MongoDB
 app.post("/projects/:id/pay", authMiddleware, async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
@@ -443,7 +446,7 @@ app.post("/projects/:id/pay", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Mark project as COMPLETED
+//  Mark project as COMPLETED
 app.post("/projects/:id/complete", authMiddleware, async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
@@ -508,6 +511,7 @@ app.delete("/projects/:id/files/:fileIndex", authMiddleware, async (req, res) =>
 });
 
 //  BID ROUTES
+
 app.post("/bid", authMiddleware, validate(schemas.bid), async (req, res) => {
   try {
     const { projectId, amount, message } = req.body;
@@ -668,6 +672,7 @@ app.put("/notifications/read", authMiddleware, async (req, res) => {
   } catch { res.status(500).json({ message: "Failed to mark notifications" }); }
 });
 
+
 //  REVIEWS
 app.post("/reviews", authMiddleware, validate(schemas.review), async (req, res) => {
   try {
@@ -754,6 +759,7 @@ app.get("/messages/:room", authMiddleware, async (req, res) => {
 
 //  AI ROUTES (Claude via Anthropic SDK)
 
+
 // AI Proposal Generator
 app.post("/ai/generate-proposal", authMiddleware, async (req, res) => {
   if (!anthropic) return res.status(503).json({ message: "AI not configured. Add ANTHROPIC_API_KEY to .env" });
@@ -824,6 +830,7 @@ Description: ${description}`,
 });
 
 //  VIDEO MEETING (Daily.co)
+
 app.post("/meetings/create", authMiddleware, async (req, res) => {
   if (!process.env.DAILY_API_KEY)
     return res.status(503).json({ message: "Video meetings not configured. Add DAILY_API_KEY to .env" });
@@ -874,6 +881,7 @@ app.post("/meetings/create", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Failed to create meeting" });
   }
 });
+
 
 //  SOCKET.IO — Real-time chat with room-based auth
 io.on("connection", async (socket) => {
@@ -930,7 +938,9 @@ io.on("connection", async (socket) => {
 
   socket.on("disconnect", () => console.log("❌ Disconnected:", socket.id));
 });
+
 //  START SERVER
+
 server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

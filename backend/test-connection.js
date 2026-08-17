@@ -1,6 +1,5 @@
-// ============================================================
+
 //  test-connection.js — Run: node test-connection.js
-// ============================================================
 
 require("dotenv").config();
 const mongoose = require("mongoose");
