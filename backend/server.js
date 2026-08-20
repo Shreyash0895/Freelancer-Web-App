@@ -23,7 +23,7 @@ try {
     api_key:    process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
-  console.log("✅ Cloudinary configured");
+  console.log("Cloudinary configured");
 } catch {
   console.log("⚠  Cloudinary not installed — file uploads disabled");
 }
@@ -41,7 +41,7 @@ let anthropic;
 try {
   const Anthropic = require("@anthropic-ai/sdk");
   anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  console.log("✅ Anthropic AI configured");
+  console.log("Anthropic AI configured");
 } catch {
   console.log("⚠  Anthropic SDK not installed — AI features disabled");
 }
@@ -71,7 +71,7 @@ const MONGO_URI  = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/freelance
 const JWT_SECRET = process.env.JWT_SECRET;
 
 if (!JWT_SECRET) {
-  console.error("❌  JWT_SECRET not set in .env — refusing to start.");
+  console.error(" JWT_SECRET not set in .env — refusing to start.");
   process.exit(1);
 }
 
@@ -101,7 +101,7 @@ const transporter = nodemailer.createTransport({
 if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
   transporter.verify((err) => {
     if (err) console.log("⚠  Email not configured:", err.message);
-    else     console.log("✅ Email service ready");
+    else     console.log("Email service ready");
   });
 }
 
@@ -155,8 +155,8 @@ app.use("/bids",     generalLimiter);
 
 //  MONGODB CONNECTION
 mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 10000, family: 4 })
-  .then(() => console.log("✅ MongoDB connected"))
-  .catch(err => { console.error("❌ DB Error:", err.message); process.exit(1); });
+  .then(() => console.log(" MongoDB connected"))
+  .catch(err => { console.error(" DB Error:", err.message); process.exit(1); });
 
 //  MONGOOSE MODELS
 
@@ -936,7 +936,7 @@ io.on("connection", async (socket) => {
     } catch (err) { console.error("Message error:", err); }
   });
 
-  socket.on("disconnect", () => console.log("❌ Disconnected:", socket.id));
+  socket.on("disconnect", () => console.log(" Disconnected:", socket.id));
 });
 
 //  START SERVER
