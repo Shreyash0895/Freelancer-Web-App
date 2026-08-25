@@ -12,9 +12,8 @@ const stripePromise = STRIPE_KEY && STRIPE_KEY.startsWith("pk_")
   ? loadStripe(STRIPE_KEY)
   : null;
 
-// ============================================================
+
 //  CHECKOUT FORM
-// ============================================================
 function CheckoutForm({ project, onSuccess, onCancel }) {
   const stripe   = useStripe();
   const elements = useElements();
@@ -140,9 +139,7 @@ function CheckoutWrapper({ project, onSuccess, onCancel }) {
   return <CheckoutForm project={project} onSuccess={onSuccess} onCancel={onCancel} />;
 }
 
-// ============================================================
 //  MAIN PAYMENTS PAGE
-// ============================================================
 export default function Payments() {
   const [projects,      setProjects]      = useState([]);
   const [loading,       setLoading]       = useState(true);
