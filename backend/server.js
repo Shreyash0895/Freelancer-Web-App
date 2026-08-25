@@ -1,3 +1,4 @@
+
 const express    = require("express");
 const http       = require("http");
 const { Server } = require("socket.io");
@@ -23,7 +24,7 @@ try {
     api_key:    process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
-  console.log("Cloudinary configured");
+  console.log("✅ Cloudinary configured");
 } catch {
   console.log("⚠  Cloudinary not installed — file uploads disabled");
 }
@@ -41,11 +42,10 @@ let anthropic;
 try {
   const Anthropic = require("@anthropic-ai/sdk");
   anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  console.log("Anthropic AI configured");
+  console.log("✅ Anthropic AI configured");
 } catch {
   console.log("⚠  Anthropic SDK not installed — AI features disabled");
 }
-
 
 //  APP INIT
 
@@ -71,7 +71,7 @@ const MONGO_URI  = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/freelance
 const JWT_SECRET = process.env.JWT_SECRET;
 
 if (!JWT_SECRET) {
-  console.error(" JWT_SECRET not set in .env — refusing to start.");
+  console.error("❌  JWT_SECRET not set in .env — refusing to start.");
   process.exit(1);
 }
 
@@ -93,6 +93,7 @@ if (cloudinary && multer && CloudinaryStorage) {
 }
 
 //  EMAIL SETUP (Nodemailer)
+
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
@@ -101,7 +102,7 @@ const transporter = nodemailer.createTransport({
 if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
   transporter.verify((err) => {
     if (err) console.log("⚠  Email not configured:", err.message);
-    else     console.log("Email service ready");
+    else     console.log("✅ Email service ready");
   });
 }
 
@@ -155,10 +156,11 @@ app.use("/bids",     generalLimiter);
 
 //  MONGODB CONNECTION
 mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 10000, family: 4 })
-  .then(() => console.log(" MongoDB connected"))
-  .catch(err => { console.error(" DB Error:", err.message); process.exit(1); });
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch(err => { console.error("❌ DB Error:", err.message); process.exit(1); });
 
 //  MONGOOSE MODELS
+
 
 const UserSchema = new mongoose.Schema({
   name:       { type: String, trim: true },
@@ -250,8 +252,9 @@ const Review       = mongoose.model("Review",       ReviewSchema);
 const Notification = mongoose.model("Notification", NotificationSchema);
 const Escrow       = mongoose.model("Escrow",       EscrowSchema);
 
-
+// ============================================================
 //  AUTH MIDDLEWARE
+// ============================================================
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ message: "No token provided" });
@@ -366,9 +369,7 @@ app.get("/profile/:email", authMiddleware, async (req, res) => {
   } catch { res.status(500).json({ message: "Failed to fetch profile" }); }
 });
 
-// ============================================================
 //  PROJECT ROUTES
-// ============================================================
 app.post("/projects", authMiddleware, validate(schemas.project), async (req, res) => {
   try {
     const { title, description, budget, category } = req.body;
@@ -416,7 +417,7 @@ app.get("/projects/:id", authMiddleware, async (req, res) => {
   } catch { res.status(500).json({ message: "Failed to fetch project" }); }
 });
 
-//  Mark project as PAID in MongoDB
+// ✅ Mark project as PAID in MongoDB
 app.post("/projects/:id/pay", authMiddleware, async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
@@ -446,7 +447,7 @@ app.post("/projects/:id/pay", authMiddleware, async (req, res) => {
   }
 });
 
-//  Mark project as COMPLETED
+// ✅ Mark project as COMPLETED
 app.post("/projects/:id/complete", authMiddleware, async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
@@ -511,7 +512,6 @@ app.delete("/projects/:id/files/:fileIndex", authMiddleware, async (req, res) =>
 });
 
 //  BID ROUTES
-
 app.post("/bid", authMiddleware, validate(schemas.bid), async (req, res) => {
   try {
     const { projectId, amount, message } = req.body;
@@ -672,7 +672,6 @@ app.put("/notifications/read", authMiddleware, async (req, res) => {
   } catch { res.status(500).json({ message: "Failed to mark notifications" }); }
 });
 
-
 //  REVIEWS
 app.post("/reviews", authMiddleware, validate(schemas.review), async (req, res) => {
   try {
@@ -758,7 +757,6 @@ app.get("/messages/:room", authMiddleware, async (req, res) => {
 });
 
 //  AI ROUTES (Claude via Anthropic SDK)
-
 
 // AI Proposal Generator
 app.post("/ai/generate-proposal", authMiddleware, async (req, res) => {
@@ -882,8 +880,9 @@ app.post("/meetings/create", authMiddleware, async (req, res) => {
   }
 });
 
-
+// ============================================================
 //  SOCKET.IO — Real-time chat with room-based auth
+// ============================================================
 io.on("connection", async (socket) => {
   console.log("🔌 Client connected:", socket.id);
 
@@ -936,11 +935,10 @@ io.on("connection", async (socket) => {
     } catch (err) { console.error("Message error:", err); }
   });
 
-  socket.on("disconnect", () => console.log(" Disconnected:", socket.id));
+  socket.on("disconnect", () => console.log("❌ Disconnected:", socket.id));
 });
 
 //  START SERVER
-
 server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
