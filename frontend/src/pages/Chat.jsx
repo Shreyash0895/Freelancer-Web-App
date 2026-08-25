@@ -3,63 +3,68 @@ import { useSearchParams } from "react-router-dom";
 import { io } from "socket.io-client";
 import Sidebar from "../components/Sidebar";
 import API from "../api/api";
+import { BASE_URL } from "../api/api";
 import { showToast } from "../utils/toast";
-
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 let socket = null;
 
 export default function Chat() {
-  const [searchParams] = useSearchParams();
-  const [chats,        setChats]        = useState([]);
-  const [activeRoom,   setActiveRoom]   = useState(null); // { room, projectTitle, otherParty }
-  const [messages,     setMessages]     = useState([]);
-  const [msg,          setMsg]          = useState("");
-  const [connected,    setConnected]    = useState(false);
-  const [loadingChats, setLoadingChats] = useState(true);
-  const [loadingMsgs,  setLoadingMsgs]  = useState(false);
+  const [searchParams]     = useSearchParams();
+  const [chats,            setChats]            = useState([]);
+  const [activeRoom,       setActiveRoom]        = useState(null);
+  const [messages,         setMessages]          = useState([]);
+  const [msg,              setMsg]               = useState("");
+  const [connected,        setConnected]         = useState(false);
+  const [loadingChats,     setLoadingChats]      = useState(true);
+  const [loadingMsgs,      setLoadingMsgs]       = useState(false);
+  const [startingMeeting,  setStartingMeeting]   = useState(false);
 
   const bottomRef = useRef(null);
   const email     = localStorage.getItem("email") || "Anonymous";
   const token     = localStorage.getItem("token") || "";
 
-  // ── Load conversation list ──
+  // ── Load conversations ──
   useEffect(() => {
     API.get("/my-chats")
       .then(r => {
         const list = [
-          { room: "global", projectTitle: "Global Chat", otherParty: "Everyone", isGlobal: true },
-          ...r.data,
+          { room:"global", projectTitle:"Global Chat", otherParty:"Everyone", isGlobal:true },
+          ...(r.data || []),
         ];
         setChats(list);
-
-        // Auto-select from URL param or first project chat
-        const projectIdParam = searchParams.get("project");
-        if (projectIdParam) {
-          const match = list.find(c => c.projectId === projectIdParam);
+        const pid = searchParams.get("project");
+        if (pid) {
+          const match = list.find(c => String(c.projectId) === pid);
           if (match) { setActiveRoom(match); return; }
         }
         setActiveRoom(list[0]);
       })
-      .catch(() => showToast("error", "Could not load conversations"))
+      .catch(() => {
+        const fallback = [{ room:"global", projectTitle:"Global Chat", otherParty:"Everyone", isGlobal:true }];
+        setChats(fallback);
+        setActiveRoom(fallback[0]);
+      })
       .finally(() => setLoadingChats(false));
   }, []);
 
-  // ── Connect socket when active room changes ──
+  // ── Connect socket on room change ──
   useEffect(() => {
     if (!activeRoom) return;
-
     setLoadingMsgs(true);
     setMessages([]);
 
-    // Load history via REST first
     API.get(`/messages/${activeRoom.room}`)
-      .then(r => setMessages(r.data))
-      .catch(() => showToast("error", "Could not load messages"))
+      .then(r => setMessages(r.data || []))
+      .catch(() => {})
       .finally(() => setLoadingMsgs(false));
 
-    // Connect socket scoped to this room
-    if (socket) socket.disconnect();
+    if (socket) {
+      socket.off("receiveMessage");
+      socket.off("chatHistory");
+      socket.off("authError");
+      socket.disconnect();
+    }
+
     socket = io(BASE_URL, {
       transports: ["websocket"],
       query: { room: activeRoom.room, token },
@@ -67,55 +72,39 @@ export default function Chat() {
 
     socket.on("connect",    () => setConnected(true));
     socket.on("disconnect", () => setConnected(false));
-    socket.on("authError", (msg) => showToast("error", msg));
-
+    socket.on("authError",  (errMsg) => {
+      showToast("error", errMsg || "Not authorized for this chat");
+      setActiveRoom(chats[0]);
+    });
     socket.on("chatHistory", (history) => {
-      setMessages(history);
+      setMessages(history || []);
       setLoadingMsgs(false);
     });
-
     socket.on("receiveMessage", (data) => {
       setMessages(prev => [...prev, data]);
     });
 
     return () => {
-      socket?.off("receiveMessage");
-      socket?.off("chatHistory");
-      socket?.disconnect();
-      socket = null;
+      if (socket) {
+        socket.off("receiveMessage");
+        socket.off("chatHistory");
+        socket.off("authError");
+        socket.disconnect();
+        socket = null;
+      }
     };
-  }, [activeRoom]);
+  }, [activeRoom?.room]);
 
+  // ── Auto scroll ──
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior:"smooth" });
   }, [messages]);
-
-const startMeeting = async () => {
-  if (!activeRoom || activeRoom.isGlobal) return;
-  const projectId = activeRoom.projectId;
-  try {
-    const res = await API.post("/meetings/create", { projectId });
-    // Open in new tab
-    window.open(res.data.url, "_blank");
-    showToast("success", "Meeting started! Share the link with your client/freelancer.");
-  } catch {
-    showToast("error", "Failed to create meeting");
-  }
-};
-
-// In the chat topbar:
-{!activeRoom?.isGlobal && (
-  <button onClick={startMeeting} style={meetingBtn}>
-    📹 Start Meeting
-  </button>
-)}
 
   const send = (e) => {
     e?.preventDefault();
     if (!msg.trim() || !socket || !activeRoom) return;
-
-    const payload = { text: msg.trim(), sender: email, time: new Date().toISOString() };
-    setMessages(prev => [...prev, { ...payload, own: true }]);
+    const payload = { text:msg.trim(), sender:email, time:new Date().toISOString() };
+    setMessages(prev => [...prev, { ...payload, own:true }]);
     socket.emit("sendMessage", payload);
     setMsg("");
   };
@@ -124,103 +113,107 @@ const startMeeting = async () => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
+  const startMeeting = async () => {
+    if (!activeRoom || activeRoom.isGlobal || !activeRoom.projectId) return;
+    setStartingMeeting(true);
+    try {
+      const res = await API.post("/meetings/create", { projectId: activeRoom.projectId });
+      window.open(res.data.url, "_blank");
+      showToast("success", "Meeting started!");
+    } catch (err) {
+      showToast("error", err.response?.data?.message || "Add DAILY_API_KEY to backend .env");
+    } finally {
+      setStartingMeeting(false);
+    }
+  };
+
   return (
     <div style={s.layout}>
       <Sidebar />
       <main style={s.main}>
         <div style={s.chatLayout}>
 
-          {/* ── Left: Conversation list ── */}
+          {/* ── Left panel ── */}
           <div style={s.convList}>
             <div style={s.convHeader}>
               <h2 style={s.convTitle}>Messages</h2>
-              <p style={s.convSub}>{chats.length - 1} private chat{chats.length - 1 !== 1 ? "s" : ""}</p>
+              <p style={s.convSub}>{chats.filter(c => !c.isGlobal).length} private chats</p>
             </div>
-
             {loadingChats ? (
-              <div style={s.centerSmall}><div style={s.spinner} /></div>
+              <div style={{ padding:"16px 12px", display:"flex", flexDirection:"column", gap:8 }}>
+                {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height:52, borderRadius:10 }} />)}
+              </div>
             ) : (
               <div style={s.convScroll}>
                 {chats.map(c => (
-                  <button
-                    key={c.room}
-                    onClick={() => setActiveRoom(c)}
-                    style={{
-                      ...s.convItem,
-                      ...(activeRoom?.room === c.room ? s.convItemActive : {}),
-                    }}
-                  >
-                    <div style={s.convAvatar}>
-                      {c.isGlobal ? "🌐" : (c.otherParty || "?")[0].toUpperCase()}
+                  <button key={c.room} onClick={() => setActiveRoom(c)}
+                    style={{ ...s.convItem, ...(activeRoom?.room === c.room ? s.convActive : {}) }}>
+                    <div style={{ ...s.convAvatar, background: c.isGlobal
+                      ? "linear-gradient(135deg,#6c63ff,#22d3ee)"
+                      : "linear-gradient(135deg,#f472b6,#6c63ff)" }}>
+                      {c.isGlobal ? "🌐" : (c.otherParty||"?")[0].toUpperCase()}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
-                      <div style={s.convName}>
-                        {c.isGlobal ? "Global Chat" : c.projectTitle}
-                      </div>
+                    <div style={{ flex:1, minWidth:0, textAlign:"left" }}>
+                      <div style={s.convName}>{c.isGlobal ? "Global Chat" : c.projectTitle}</div>
                       <div style={s.convPreview}>
-                        {c.isGlobal
-                          ? "Public room for everyone"
-                          : (c.lastMessage || `Chat with ${c.otherParty?.split("@")[0]}`)
-                        }
+                        {c.isGlobal ? "Public — everyone" : c.lastMessage || `With ${c.otherParty?.split("@")[0]}`}
                       </div>
                     </div>
+                    {activeRoom?.room === c.room && (
+                      <span style={{ width:6, height:6, borderRadius:"50%", background:"var(--accent)", flexShrink:0 }} />
+                    )}
                   </button>
                 ))}
-
                 {chats.length === 1 && (
-                  <div style={{ padding: "20px 16px", textAlign: "center" }}>
-                    <p style={{ color: "var(--text3)", fontSize: 13, lineHeight: 1.6 }}>
-                      Private chats unlock automatically once a bid is accepted on a project.
-                    </p>
-                  </div>
+                  <p style={{ padding:"16px 14px", color:"var(--text3)", fontSize:12, lineHeight:1.6 }}>
+                    Private chats unlock when a bid is accepted on a project.
+                  </p>
                 )}
               </div>
             )}
           </div>
 
-          {/* ── Right: Active conversation ── */}
-          <div style={s.threadPane}>
+          {/* ── Right panel ── */}
+          <div style={s.thread}>
             {!activeRoom ? (
-              <div style={s.centerMsg}>
-                <p style={{ color: "#4a5280" }}>Select a conversation</p>
-              </div>
+              <div style={s.center}><p style={{ color:"var(--text3)" }}>Select a conversation</p></div>
             ) : (
               <>
+                {/* Topbar */}
                 <div style={s.topbar}>
                   <div>
-                    <h1 style={s.title}>
-                      {activeRoom.isGlobal ? "Global Chat" : activeRoom.projectTitle}
-                    </h1>
-                    <p style={s.subtitle}>
-                      {activeRoom.isGlobal
-                        ? "Public · everyone can see this"
-                        : `Private chat with ${activeRoom.otherParty}`
-                      }
-                    </p>
+                    <h1 style={s.title}>{activeRoom.isGlobal ? "Global Chat" : activeRoom.projectTitle}</h1>
+                    <p style={s.subtitle}>{activeRoom.isGlobal ? "Public · everyone" : `Private · ${activeRoom.otherParty}`}</p>
                   </div>
-                  <div style={{ ...s.statusBadge, ...(connected ? s.online : s.offline) }}>
-                    <span style={{ ...s.dot, background: connected ? "#34d399" : "#f87171" }} />
-                    {connected ? "Connected" : "Connecting..."}
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    {!activeRoom.isGlobal && (
+                      <button onClick={startMeeting} disabled={startingMeeting} style={s.meetingBtn}>
+                        {startingMeeting ? <span className="spinner" style={{ width:14, height:14 }} /> : "📹"}
+                        <span style={{ fontSize:13, marginLeft:6 }}>
+                          {startingMeeting ? "Starting..." : "Meeting"}
+                        </span>
+                      </button>
+                    )}
+                    <div style={{ ...s.statusPill, ...(connected ? s.online : s.offline) }}>
+                      <span style={{ ...s.dot, background: connected ? "#34d399" : "#f87171" }} />
+                      {connected ? "Connected" : "Connecting..."}
+                    </div>
                   </div>
                 </div>
 
-                <div style={s.chatWindow}>
-                  <div style={s.messages}>
+                {/* Messages */}
+                <div style={s.chatBox}>
+                  <div style={s.msgs}>
                     {loadingMsgs ? (
-                      <div style={s.centerMsg}>
-                        <div style={s.spinner} />
-                        <p style={{ color: "#4a5280", marginTop: 12, fontSize: 14 }}>Loading messages...</p>
+                      <div style={s.center}>
+                        <div className="spinner" style={{ width:28, height:28, margin:"0 auto 10px" }} />
+                        <p style={{ color:"var(--text3)", fontSize:14 }}>Loading...</p>
                       </div>
                     ) : messages.length === 0 ? (
-                      <div style={s.centerMsg}>
-                        <div style={{ fontSize: 40, marginBottom: 12 }}>
-                          {activeRoom.isGlobal ? "🌐" : "🔒"}
-                        </div>
-                        <p style={{ color: "#4a5280", fontSize: 15 }}>
-                          {activeRoom.isGlobal
-                            ? "No messages yet. Start the conversation!"
-                            : "This is the start of your private conversation."
-                          }
+                      <div style={s.center}>
+                        <div style={{ fontSize:36, marginBottom:10 }}>{activeRoom.isGlobal ? "🌐" : "🔒"}</div>
+                        <p style={{ color:"var(--text3)", fontSize:14 }}>
+                          {activeRoom.isGlobal ? "No messages yet. Say hello!" : "Start of your private conversation."}
                         </p>
                       </div>
                     ) : (
@@ -231,7 +224,8 @@ const startMeeting = async () => {
                     <div ref={bottomRef} />
                   </div>
 
-                  <form style={s.inputBar} onSubmit={send}>
+                  {/* Input */}
+                  <form style={s.inputRow} onSubmit={send}>
                     <input
                       style={s.input}
                       placeholder={activeRoom.isGlobal ? "Message everyone..." : `Message ${activeRoom.otherParty?.split("@")[0]}...`}
@@ -239,14 +233,8 @@ const startMeeting = async () => {
                       onChange={e => setMsg(e.target.value)}
                       onKeyDown={handleKey}
                       autoComplete="off"
-                      onFocus={e => Object.assign(e.target.style, s.inputFocus)}
-                      onBlur={e => Object.assign(e.target.style, s.input)}
                     />
-                    <button
-                      type="submit"
-                      disabled={!msg.trim()}
-                      style={msg.trim() ? s.sendBtn : { ...s.sendBtn, opacity: 0.4, cursor: "not-allowed" }}
-                    >
+                    <button type="submit" disabled={!msg.trim()} style={msg.trim() ? s.sendBtn : { ...s.sendBtn, opacity:0.4, cursor:"not-allowed" }}>
                       ➤
                     </button>
                   </form>
@@ -261,76 +249,61 @@ const startMeeting = async () => {
 }
 
 function Bubble({ message: m, own }) {
-  const time = m.time || m.createdAt
-    ? new Date(m.time || m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  const time = (m.time || m.createdAt)
+    ? new Date(m.time || m.createdAt).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })
     : "";
-
   return (
-    <div style={{ ...s.bubbleWrap, justifyContent: own ? "flex-end" : "flex-start" }}>
-      {!own && <div style={s.avatarCircle}>{(m.sender || "?")[0].toUpperCase()}</div>}
+    <div style={{ display:"flex", alignItems:"flex-end", gap:8, justifyContent: own ? "flex-end" : "flex-start" }}>
+      {!own && (
+        <div style={{ width:30, height:30, borderRadius:"50%", background:"linear-gradient(135deg,#6c63ff,#f472b6)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:700, color:"#fff", flexShrink:0 }}>
+          {(m.sender||"?")[0].toUpperCase()}
+        </div>
+      )}
       <div style={own ? s.bubbleOwn : s.bubbleOther}>
-        {!own && <div style={s.bubbleSender}>{m.sender?.split("@")[0]}</div>}
-        <div style={s.bubbleText}>{m.text}</div>
-        {time && <div style={s.bubbleTime}>{time}</div>}
+        {!own && <div style={{ fontSize:11, fontWeight:700, color:"var(--accent2)", marginBottom:4 }}>{m.sender?.split("@")[0]}</div>}
+        <div style={{ fontSize:14, lineHeight:1.5, color:"var(--text)", wordBreak:"break-word" }}>{m.text}</div>
+        {time && <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", marginTop:4, textAlign:"right" }}>{time}</div>}
       </div>
     </div>
   );
 }
 
 const s = {
-  layout: { display: "flex", minHeight: "100vh", fontFamily: "'Segoe UI', system-ui, sans-serif", background: "#07080f" },
-  main:   { flex: 1, display: "flex", overflow: "hidden", background: "radial-gradient(ellipse at 10% 10%, rgba(108,99,255,0.06) 0%, transparent 55%), #07080f" },
-  chatLayout: { display: "flex", flex: 1, height: "100vh" },
+  layout:     { display:"flex", minHeight:"100vh", background:"var(--bg)" },
+  main:       { flex:1, display:"flex", overflow:"hidden", background:"radial-gradient(ellipse at 10% 10%, rgba(108,99,255,0.06) 0%, transparent 55%), var(--bg)" },
+  chatLayout: { display:"flex", flex:1, height:"100vh" },
 
-  // ── Conversation list ──
-  convList:   { width: 320, flexShrink: 0, borderRight: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", background: "#0a0b14" },
-  convHeader: { padding: "28px 24px 16px" },
-  convTitle:  { fontSize: 24, fontWeight: 800, color: "#f0f0ff", margin: "0 0 4px", fontFamily: "Georgia, serif" },
-  convSub:    { fontSize: 13, color: "#7a83aa", margin: 0 },
-  convScroll: { flex: 1, overflowY: "auto", padding: "8px 12px" },
-  convItem: {
-    display: "flex", alignItems: "center", gap: 12, width: "100%",
-    padding: "12px", borderRadius: 12, border: "none", background: "transparent",
-    cursor: "pointer", marginBottom: 4, textAlign: "left",
-  },
-  convItemActive: { background: "rgba(108,99,255,0.15)" },
-  convAvatar: {
-    width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
-    background: "linear-gradient(135deg, #6c63ff, #f472b6)",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: 16, fontWeight: 700, color: "#fff",
-  },
-  convName:    { fontSize: 14, fontWeight: 600, color: "#f0f0ff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
-  convPreview: { fontSize: 12, color: "#7a83aa", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 },
+  convList:   { width:280, flexShrink:0, borderRight:"1px solid var(--border)", display:"flex", flexDirection:"column", background:"var(--bg2)" },
+  convHeader: { padding:"22px 18px 14px", borderBottom:"1px solid var(--border)" },
+  convTitle:  { fontSize:18, fontWeight:800, color:"var(--text)", margin:"0 0 3px", fontFamily:"'Syne',sans-serif" },
+  convSub:    { fontSize:12, color:"var(--text3)", margin:0 },
+  convScroll: { flex:1, overflowY:"auto", padding:"8px 8px" },
+  convItem:   { display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 10px", borderRadius:10, border:"none", background:"transparent", cursor:"pointer", marginBottom:2, transition:"background 0.15s" },
+  convActive: { background:"rgba(108,99,255,0.12)" },
+  convAvatar: { width:36, height:36, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:700, color:"#fff" },
+  convName:   { fontSize:13, fontWeight:600, color:"var(--text)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" },
+  convPreview:{ fontSize:11, color:"var(--text3)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:2 },
 
-  // ── Thread pane ──
-  threadPane: { flex: 1, display: "flex", flexDirection: "column", padding: "32px 40px", overflow: "hidden" },
-  topbar:   { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 },
-  title:    { fontSize: 26, fontWeight: 800, color: "#f0f0ff", margin: "0 0 4px", fontFamily: "Georgia, serif" },
-  subtitle: { fontSize: 14, color: "#7a83aa", margin: 0 },
+  thread:  { flex:1, display:"flex", flexDirection:"column", padding:"22px 28px", overflow:"hidden" },
+  topbar:  { display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16, flexWrap:"wrap", gap:10 },
+  title:   { fontSize:20, fontWeight:800, color:"var(--text)", margin:"0 0 3px", fontFamily:"'Syne',sans-serif" },
+  subtitle:{ fontSize:13, color:"var(--text3)", margin:0 },
 
-  statusBadge: { display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 100, border: "1px solid rgba(255,255,255,0.1)", background: "#0d0f1e", fontSize: 12, fontWeight: 500 },
-  online:  { color: "#34d399", borderColor: "rgba(52,211,153,0.25)" },
-  offline: { color: "#7a83aa" },
-  dot:     { width: 8, height: 8, borderRadius: "50%", flexShrink: 0 },
+  meetingBtn: { display:"flex", alignItems:"center", padding:"8px 14px", borderRadius:10, border:"1px solid rgba(34,211,238,0.3)", background:"rgba(34,211,238,0.08)", color:"var(--cyan)", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"inherit", transition:"all 0.2s" },
 
-  chatWindow: { flex: 1, display: "flex", flexDirection: "column", background: "#0d0f1e", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, overflow: "hidden" },
-  messages:   { flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: 16 },
-  centerMsg:  { margin: "auto", textAlign: "center", color: "#4a5280" },
-  centerSmall:{ display: "flex", justifyContent: "center", padding: "30px 0" },
+  statusPill:{ display:"flex", alignItems:"center", gap:6, padding:"6px 14px", borderRadius:100, border:"1px solid rgba(255,255,255,0.1)", background:"var(--bg2)", fontSize:12, fontWeight:500 },
+  online:    { color:"#34d399", borderColor:"rgba(52,211,153,0.25)" },
+  offline:   { color:"var(--text3)" },
+  dot:       { width:6, height:6, borderRadius:"50%", flexShrink:0 },
 
-  bubbleWrap: { display: "flex", alignItems: "flex-end", gap: 10 },
-  avatarCircle: { width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg, #6c63ff, #f472b6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 },
-  bubbleOther: { maxWidth: "60%", padding: "11px 15px", borderRadius: "16px 16px 16px 4px", background: "#181c35", border: "1px solid rgba(255,255,255,0.07)" },
-  bubbleOwn:   { maxWidth: "60%", padding: "11px 15px", borderRadius: "16px 16px 4px 16px", background: "linear-gradient(135deg, #6c63ff, #8b83ff)" },
-  bubbleSender:{ fontSize: 11, fontWeight: 700, color: "#818cf8", marginBottom: 4 },
-  bubbleText:  { fontSize: 14, lineHeight: 1.5, color: "#f0f0ff", wordBreak: "break-word" },
-  bubbleTime:  { fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 5, textAlign: "right" },
+  chatBox:   { flex:1, display:"flex", flexDirection:"column", background:"var(--bg2)", border:"1px solid var(--border)", borderRadius:14, overflow:"hidden" },
+  msgs:      { flex:1, overflowY:"auto", padding:"18px", display:"flex", flexDirection:"column", gap:12 },
+  center:    { margin:"auto", textAlign:"center" },
 
-  inputBar: { display: "flex", gap: 12, padding: "14px 18px", borderTop: "1px solid rgba(255,255,255,0.07)", background: "#0a0b14" },
-  input:    { flex: 1, background: "#13162a", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 12, padding: "12px 16px", color: "#f0f0ff", fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" },
-  inputFocus: { flex: 1, background: "#181c35", border: "1px solid #6c63ff", borderRadius: 12, padding: "12px 16px", color: "#f0f0ff", fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box", boxShadow: "0 0 0 3px rgba(108,99,255,0.15)" },
-  sendBtn: { width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #6c63ff, #a78bfa)", color: "#fff", fontSize: 16, border: "none", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(108,99,255,0.35)" },
+  bubbleOther: { maxWidth:"60%", padding:"10px 14px", borderRadius:"14px 14px 14px 3px", background:"var(--surface)", border:"1px solid var(--border)" },
+  bubbleOwn:   { maxWidth:"60%", padding:"10px 14px", borderRadius:"14px 14px 3px 14px", background:"linear-gradient(135deg,#6c63ff,#8b83ff)" },
 
-  spinner: { width: 26, height: 26, border: "3px solid rgba(255,255,255,0.08)", borderTopColor: "#6c63ff", borderRadius: "50%", animation: "spin 0.7s linear infinite", margin: "0 auto" },
+  inputRow:{ display:"flex", gap:10, padding:"12px 14px", borderTop:"1px solid var(--border)", background:"var(--bg3)" },
+  input:   { flex:1, background:"var(--surface)", border:"1px solid var(--border2)", borderRadius:10, padding:"11px 14px", color:"var(--text)", fontSize:14, outline:"none", fontFamily:"inherit" },
+  sendBtn: { width:42, height:42, borderRadius:10, background:"linear-gradient(135deg,#6c63ff,#a78bfa)", color:"#fff", fontSize:16, border:"none", cursor:"pointer", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 4px 12px rgba(108,99,255,0.35)" },
 };

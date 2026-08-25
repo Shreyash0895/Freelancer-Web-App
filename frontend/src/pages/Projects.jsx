@@ -3,165 +3,146 @@ import Sidebar from "../components/Sidebar";
 import API from "../api/api";
 import { showToast } from "../utils/toast";
 
+const CATEGORIES = ["All", "Web Dev", "Mobile", "Design", "Writing", "Marketing", "Data", "Other"];
+
 export default function Projects() {
-  const [projects,    setProjects]    = useState([]);
-  const [pagination,  setPagination]  = useState({ page: 1, pages: 1, total: 0, hasNext: false, hasPrev: false });
-  const [loading,     setLoading]     = useState(true);
-  const [search,      setSearch]      = useState("");
-  const [filter,      setFilter]      = useState("all"); // all | open | assigned
-  const [page,        setPage]        = useState(1);
-  const [showPost,    setShowPost]    = useState(false);
-  const [activeBids,  setActiveBids]  = useState(null);
-  const [showBidForm, setShowBidForm] = useState(null);
+  const [projects,     setProjects]     = useState([]);
+  const [total,        setTotal]        = useState(0);
+  const [page,         setPage]         = useState(1);
+  const [loading,      setLoading]      = useState(true);
+  const [search,       setSearch]       = useState("");
+  const [searchInput,  setSearchInput]  = useState("");
+  const [filter,       setFilter]       = useState("all");   // all | open | assigned
+  const [category,     setCategory]     = useState("All");
+  const [showPost,     setShowPost]     = useState(false);
+  const [showBid,      setShowBid]      = useState(false);
+  const [showBids,     setShowBids]     = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [bids,         setBids]         = useState([]);
+  const [bidsLoading,  setBidsLoading]  = useState(false);
 
-  const email = localStorage.getItem("email") || "";
   const role  = localStorage.getItem("role")  || "";
+  const email = localStorage.getItem("email") || "";
 
-  // ── Fetch with search + filter + pagination ──
-  const fetchProjects = useCallback(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ page, limit: 9 });
-    if (search) params.set("search", search);
-    if (filter === "open")     params.set("assigned", "false");
-    if (filter === "assigned") params.set("assigned", "true");
-
-    API.get(`/projects?${params}`)
-      .then(r => {
-        setProjects(r.data.projects);
-        setPagination(r.data.pagination);
-      })
-      .catch(() => showToast("error", "Failed to load projects"))
-      .finally(() => setLoading(false));
-  }, [page, search, filter]);
-
-  useEffect(() => { fetchProjects(); }, [fetchProjects]);
-
-  // Reset to page 1 when search/filter changes
-  useEffect(() => { setPage(1); }, [search, filter]);
-
-  //Generate with AI button inside your bid form
-const generateProposal = async () => {
-  setGenerating(true);
-  try {
-    const skills = localStorage.getItem("skills") || "web development";
-    const res = await API.post("/ai/generate-proposal", {
-      projectTitle: project.title,
-      projectDescription: project.description,
-      budget: project.budget,
-      freelancerSkills: skills,
-    });
-    setBidMessage(res.data.proposal);
-  } catch {
-    showToast("error", "AI generation failed");
-  } finally {
-    setGenerating(false);
-  }
-};
-
-// In your bid form JSX:
-<>
-  <button
-    type="button"
-    onClick={generateProposal}
-    disabled={generating}
-    style={{ ...btnStyle, background: "linear-gradient(135deg,#6c63ff,#a78bfa)" }}
-  >
-    {generating ? "✨ Generating..." : "✨ Generate with AI"}
-  </button>
-  <textarea
-    value={bidMessage}
-    onChange={e => setBidMessage(e.target.value)}
-    placeholder="Your proposal..."
-    rows={4}
-    style={{
-      width: "100%",
-      background: "#13162a",
-      border: "1px solid rgba(255,255,255,0.09)",
-      borderRadius: 10,
-      padding: "12px 14px",
-      color: "#f0f0ff",
-      fontSize: 14,
-      fontFamily: "inherit",
-      resize: "vertical",
-      outline: "none",
-      marginTop: 8,
-    }}
-  />
-</>
-  // Debounce search
-  const [searchInput, setSearchInput] = useState("");
+  // ── Debounced search ──
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 400);
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  
+  // ── Load projects ──
+  const loadProjects = useCallback(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ page, limit: 12 });
+    if (search) params.set("search", search);
+    if (filter === "open")     params.set("assigned", "false");
+    if (filter === "assigned") params.set("assigned", "true");
+    if (category !== "All")   params.set("category", category);
+
+    API.get(`/projects?${params}`)
+      .then(r => {
+        setProjects(r.data.projects || []);
+        setTotal(r.data.pagination?.total || 0);
+      })
+      .catch(() => showToast("error", "Failed to load projects"))
+      .finally(() => setLoading(false));
+  }, [page, search, filter, category]);
+
+  useEffect(() => { loadProjects(); }, [loadProjects]);
+
+  const openBids = async (project) => {
+    setSelectedProject(project);
+    setShowBids(true);
+    setBidsLoading(true);
+    try {
+      const res = await API.get(`/bids/${project._id}`);
+      setBids(res.data || []);
+    } catch { showToast("error", "Failed to load bids"); }
+    finally   { setBidsLoading(false); }
+  };
+
+  const acceptBid = async (projectId, freelancerEmail) => {
+    try {
+      await API.post("/accept-bid", { projectId, freelancerEmail });
+      showToast("success", "Bid accepted! Private chat is now open.");
+      setShowBids(false);
+      loadProjects();
+    } catch (err) {
+      showToast("error", err.response?.data?.message || "Failed to accept bid");
+    }
+  };
 
   return (
-    <div style={s.layout}>
+    <div className="app-layout">
       <Sidebar />
-      <main style={s.main}>
-        <div style={s.inner}>
+      <main className="main-content">
+        <div className="page-inner">
 
           {/* ── Header ── */}
           <div style={s.topbar}>
             <div>
-              <h1 style={s.title}>Projects</h1>
-              <p style={s.subtitle}>
-                {pagination.total} project{pagination.total !== 1 ? "s" : ""} found
-              </p>
+              <h1 style={s.pageTitle}>Projects</h1>
+              <p style={s.pageSub}>{total} project{total !== 1 ? "s" : ""} available</p>
             </div>
             {role === "client" && (
-              <button style={s.postBtn} onClick={() => setShowPost(true)}>
-                + Post project
+              <button className="btn btn-primary" style={{ padding:"12px 24px" }}
+                onClick={() => setShowPost(true)}>
+                + Post Project
               </button>
             )}
           </div>
 
-          {/* ── Search + Filter bar ── */}
-          <div style={s.toolbar}>
-            <div style={s.searchWrap}>
-              <span style={s.searchIcon}>🔍</span>
-              <input
-                style={s.searchInput}
-                placeholder="Search projects by title or description..."
-                value={searchInput}
-                onChange={e => setSearchInput(e.target.value)}
-                onFocus={e => Object.assign(e.target.style, s.searchInputFocus)}
-                onBlur={e => Object.assign(e.target.style, s.searchInput)}
-              />
-              {searchInput && (
-                <button style={s.clearBtn} onClick={() => setSearchInput("")}>✕</button>
-              )}
-            </div>
-            <div style={s.filters}>
-              {["all", "open", "assigned"].map(f => (
-                <button
-                  key={f}
-                  style={filter === f ? s.filterActive : s.filterBtn}
-                  onClick={() => setFilter(f)}
-                >
+          {/* ── Filters ── */}
+          <div style={s.filtersRow}>
+            <input
+              className="form-input"
+              style={{ maxWidth: 280, height: 40 }}
+              placeholder="🔍 Search projects..."
+              value={searchInput}
+              onChange={e => { setSearchInput(e.target.value); setPage(1); }}
+            />
+            <div style={s.filterBtns}>
+              {["all","open","assigned"].map(f => (
+                <button key={f} onClick={() => { setFilter(f); setPage(1); }}
+                  className={`btn ${filter === f ? "btn-primary" : "btn-ghost"}`}
+                  style={{ padding:"8px 16px", fontSize:13, textTransform:"capitalize" }}>
                   {f === "all" ? "All" : f === "open" ? "Open" : "Assigned"}
                 </button>
               ))}
             </div>
+            <select
+              value={category}
+              onChange={e => { setCategory(e.target.value); setPage(1); }}
+              style={{ ...s.select }}
+            >
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
 
           {/* ── Project Grid ── */}
           {loading ? (
-            <div style={s.center}>
-              <div style={s.spinner} />
+            <div style={s.grid}>
+              {[1,2,3,4,5,6].map(i => (
+                <div key={i} style={s.skeletonCard}>
+                  <div className="skeleton" style={{ height:20, width:"70%", marginBottom:10, borderRadius:6 }} />
+                  <div className="skeleton" style={{ height:14, width:"90%", marginBottom:6, borderRadius:4 }} />
+                  <div className="skeleton" style={{ height:14, width:"60%", marginBottom:20, borderRadius:4 }} />
+                  <div style={{ display:"flex", justifyContent:"space-between" }}>
+                    <div className="skeleton" style={{ height:28, width:70, borderRadius:6 }} />
+                    <div className="skeleton" style={{ height:36, width:90, borderRadius:8 }} />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : projects.length === 0 ? (
-            <div style={s.emptyState}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>◈</div>
-              <h3 style={s.emptyTitle}>No projects found</h3>
-              <p style={s.emptySub}>
-                {search ? `No results for "${search}"` : role === "client" ? "Post your first project!" : "No projects available right now."}
-              </p>
-              {search && (
-                <button style={s.clearSearchBtn} onClick={() => setSearchInput("")}>
-                  Clear search
+            <div className="empty-state">
+              <div className="empty-state-icon">◈</div>
+              <h3>No projects found</h3>
+              <p>Try changing your search or filters.</p>
+              {role === "client" && (
+                <button className="btn btn-primary" style={{ marginTop:20 }}
+                  onClick={() => setShowPost(true)}>
+                  Post a project
                 </button>
               )}
             </div>
@@ -171,414 +152,501 @@ const generateProposal = async () => {
                 <ProjectCard
                   key={p._id}
                   project={p}
-                  email={email}
                   role={role}
-                  onViewBids={() => setActiveBids(p)}
-                  onBid={() => setShowBidForm(p)}
+                  email={email}
+                  onBid={() => { setSelectedProject(p); setShowBid(true); }}
+                  onViewBids={() => openBids(p)}
                 />
               ))}
             </div>
           )}
 
           {/* ── Pagination ── */}
-          {!loading && pagination.pages > 1 && (
-            <div style={s.paginationBar}>
-              <button
-                style={pagination.hasPrev ? s.pageBtn : { ...s.pageBtn, opacity: 0.35, cursor: "not-allowed" }}
-                disabled={!pagination.hasPrev}
-                onClick={() => setPage(p => p - 1)}
-              >
+          {total > 12 && (
+            <div style={s.pagination}>
+              <button className="btn btn-ghost" style={{ padding:"8px 18px" }}
+                disabled={page === 1} onClick={() => setPage(p => p - 1)}>
                 ← Prev
               </button>
-
-              <div style={s.pageNumbers}>
-                {Array.from({ length: pagination.pages }, (_, i) => i + 1).map(n => (
-                  <button
-                    key={n}
-                    style={n === page ? s.pageNumActive : s.pageNum}
-                    onClick={() => setPage(n)}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                style={pagination.hasNext ? s.pageBtn : { ...s.pageBtn, opacity: 0.35, cursor: "not-allowed" }}
-                disabled={!pagination.hasNext}
-                onClick={() => setPage(p => p + 1)}
-              >
+              <span style={{ color:"var(--text2)", fontSize:14 }}>
+                Page {page} of {Math.ceil(total / 12)}
+              </span>
+              <button className="btn btn-ghost" style={{ padding:"8px 18px" }}
+                disabled={page * 12 >= total} onClick={() => setPage(p => p + 1)}>
                 Next →
               </button>
             </div>
           )}
-
         </div>
       </main>
 
       {/* ── Modals ── */}
       {showPost && (
-        <PostProjectModal
+        <PostModal
           onClose={() => setShowPost(false)}
-          onSuccess={() => { setShowPost(false); fetchProjects(); }}
+          onSuccess={() => { setShowPost(false); loadProjects(); }}
         />
       )}
-      {activeBids && (
+      {showBid && selectedProject && (
+        <BidModal
+          project={selectedProject}
+          onClose={() => setShowBid(false)}
+          onSuccess={() => { setShowBid(false); loadProjects(); }}
+        />
+      )}
+      {showBids && selectedProject && (
         <BidsModal
-          project={activeBids}
-          onClose={() => setActiveBids(null)}
-          onRefresh={fetchProjects}
-          isOwner={activeBids.createdBy === email}
-        />
-      )}
-      {showBidForm && (
-        <BidFormModal
-          project={showBidForm}
-          onClose={() => setShowBidForm(null)}
-          onSuccess={() => { setShowBidForm(null); fetchProjects(); showToast("success", "Bid submitted!"); }}
+          project={selectedProject}
+          bids={bids}
+          loading={bidsLoading}
+          email={email}
+          onClose={() => setShowBids(false)}
+          onAccept={acceptBid}
         />
       )}
     </div>
   );
 }
 
-/* ─── Project Card ─── */
-function ProjectCard({ project: p, email, role, onViewBids, onBid }) {
-  const isOwner = p.createdBy === email;
-  const [hovered, setHovered] = useState(false);
+// ── Project Card ──
+function ProjectCard({ project: p, role, email, onBid, onViewBids }) {
+  const isOwner      = p.createdBy === email;
+  const isFreelancer = role === "freelancer";
 
   return (
-    <div
-      style={{ ...s.card, ...(hovered ? s.cardHover : {}) }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
+    <div style={s.card}>
       <div style={s.cardTop}>
-        <h3 style={s.cardTitle}>{p.title}</h3>
-        <span style={p.assigned ? s.badgeGreen : s.badgePurple}>
+        <span className={`badge ${p.assigned ? "badge-green" : "badge-purple"}`}>
           {p.assigned ? "Assigned" : "Open"}
         </span>
+        {p.category && p.category !== "General" && (
+          <span className="badge badge-cyan" style={{ fontSize:11 }}>{p.category}</span>
+        )}
       </div>
 
-      <p style={s.cardDesc}>{p.description || "No description provided."}</p>
+      <h3 style={s.cardTitle}>{p.title}</h3>
+      <p style={s.cardDesc}>
+        {p.description?.length > 100 ? p.description.slice(0, 100) + "..." : p.description}
+      </p>
 
       <div style={s.cardMeta}>
-        <span style={s.cardBy}>by {p.createdBy?.split("@")[0]}</span>
-        <span style={s.cardBudget}>${p.budget}</span>
+        <span style={s.cardMetaItem}>👤 {p.createdBy?.split("@")[0]}</span>
+        <span style={s.cardMetaItem}>📅 {new Date(p.createdAt).toLocaleDateString()}</span>
       </div>
 
-      <div style={s.cardActions}>
-        <button style={s.viewBidsBtn} onClick={onViewBids}>
-          View bids
-        </button>
-        {role === "freelancer" && !p.assigned && (
-          <button style={s.bidBtn} onClick={onBid}>
-            Place bid
-          </button>
-        )}
-        {isOwner && (
-          <button style={s.manageBtn} onClick={onViewBids}>
-            Manage
-          </button>
-        )}
+      <div style={s.cardFooter}>
+        <span style={s.cardBudget}>${p.budget}</span>
+        <div style={{ display:"flex", gap:8 }}>
+          {isOwner && (
+            <button className="btn btn-secondary" style={{ padding:"8px 14px", fontSize:13 }}
+              onClick={onViewBids}>
+              View Bids
+            </button>
+          )}
+          {isFreelancer && !p.assigned && !isOwner && (
+            <button className="btn btn-primary" style={{ padding:"8px 14px", fontSize:13 }}
+              onClick={onBid}>
+              Bid
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-/* ─── Post Project Modal ─── */
-function PostProjectModal({ onClose, onSuccess }) {
-  const [data,    setData]    = useState({ title: "", description: "", budget: "" });
-  const [loading, setLoading] = useState(false);
-  const [errors,  setErrors]  = useState({});
+// ── Post Project Modal ──
+function PostModal({ onClose, onSuccess }) {
+  const [form,       setForm]       = useState({ title:"", description:"", budget:"", category:"Web Dev" });
+  const [saving,     setSaving]     = useState(false);
+  const [estimating, setEstimating] = useState(false);
+  const [estimate,   setEstimate]   = useState(null);
 
-  const set = k => e => {
-    setData(d => ({ ...d, [k]: e.target.value }));
-    setErrors(er => ({ ...er, [k]: "" }));
-  };
+  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
-  const validate = () => {
-    const e = {};
-    if (!data.title || data.title.length < 3)  e.title = "Title must be at least 3 characters";
-    if (!data.description || data.description.length < 10) e.description = "Description must be at least 10 characters";
-    if (!data.budget || Number(data.budget) < 1) e.budget = "Budget must be at least $1";
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const submit = async e => {
-    e.preventDefault();
-    if (!validate()) return;
-    setLoading(true);
+  const getEstimate = async () => {
+    if (!form.title || !form.description) {
+      showToast("error", "Fill in title and description first");
+      return;
+    }
+    setEstimating(true);
+    setEstimate(null);
     try {
-      await API.post("/projects", { ...data, budget: Number(data.budget) });
-      showToast("success", "Project posted successfully!");
+      const res = await API.post("/ai/estimate-project", {
+        title: form.title,
+        description: form.description,
+      });
+      setEstimate(res.data);
+    } catch (err) {
+      showToast("error", err.response?.data?.message || "AI estimation failed. Check ANTHROPIC_API_KEY.");
+    } finally {
+      setEstimating(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.title || !form.description || !form.budget) {
+      showToast("error", "Please fill in all required fields");
+      return;
+    }
+    setSaving(true);
+    try {
+      await API.post("/projects", form);
+      showToast("success", "Project posted! Freelancers can now bid.");
       onSuccess();
     } catch (err) {
       showToast("error", err.response?.data?.message || "Failed to post project");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   return (
-    <ModalWrap onClose={onClose}>
-      <div style={s.modalHeader}>
-        <h2 style={s.modalTitle}>Post a project</h2>
-        <button style={s.closeBtn} onClick={onClose}>✕</button>
-      </div>
-      <form onSubmit={submit} style={s.modalForm}>
-        <Field label="Project title" error={errors.title}>
-          <input style={s.modalInput} placeholder="e.g. Build a React dashboard" onChange={set("title")} />
-        </Field>
-        <Field label="Description" error={errors.description}>
-          <textarea style={s.modalTextarea} placeholder="Describe what you need in detail..." onChange={set("description")} />
-        </Field>
-        <Field label="Budget (USD)" error={errors.budget}>
-          <input style={s.modalInput} type="number" placeholder="e.g. 500" onChange={set("budget")} />
-        </Field>
-        <div style={s.modalBtns}>
-          <button type="button" style={s.cancelBtn} onClick={onClose}>Cancel</button>
-          <button type="submit" style={s.submitBtn} disabled={loading}>
-            {loading ? <span style={s.spinner} /> : "Post project"}
-          </button>
+    <div style={m.overlay}>
+      <div style={{ ...m.modal, maxWidth:560 }}>
+        <div style={m.header}>
+          <h2 style={m.title}>Post a Project</h2>
+          <button onClick={onClose} style={m.closeBtn}>✕</button>
         </div>
-      </form>
-    </ModalWrap>
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+            <div className="form-group">
+              <label className="form-label">Project Title *</label>
+              <input className="form-input" value={form.title} onChange={set("title")}
+                placeholder="e.g. Build a React dashboard" required />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Description *</label>
+              <textarea className="form-input" value={form.description} onChange={set("description")}
+                placeholder="Describe what you need in detail..." rows={4} required
+                style={{ resize:"vertical" }} />
+            </div>
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+              <div className="form-group">
+                <label className="form-label">Budget ($) *</label>
+                <input className="form-input" type="number" value={form.budget} onChange={set("budget")}
+                  placeholder="500" min="1" required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Category</label>
+                <select className="form-input" value={form.category} onChange={set("category")}
+                  style={{ cursor:"pointer" }}>
+                  {CATEGORIES.filter(c => c !== "All").map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* AI Estimate Button */}
+            <button
+              type="button"
+              onClick={getEstimate}
+              disabled={estimating}
+              style={s.aiBtn}
+            >
+              {estimating
+                ? <><span className="spinner" style={{ width:14, height:14 }} /> Estimating...</>
+                : "✨ Estimate with AI"
+              }
+            </button>
+
+            {/* Estimate result */}
+            {estimate && (
+              <div style={s.estimateBox}>
+                <p style={s.estimateTitle}>🤖 AI Estimation</p>
+                <div style={s.estimateGrid}>
+                  <div style={s.estimateItem}>
+                    <span style={s.estimateLabel}>Timeline</span>
+                    <span style={s.estimateValue}>{estimate.timeline}</span>
+                  </div>
+                  <div style={s.estimateItem}>
+                    <span style={s.estimateLabel}>Budget Range</span>
+                    <span style={s.estimateValue}>${estimate.budgetMin}–${estimate.budgetMax}</span>
+                  </div>
+                  <div style={s.estimateItem}>
+                    <span style={s.estimateLabel}>Complexity</span>
+                    <span style={{
+                      ...s.estimateValue,
+                      color: estimate.complexity === "Low" ? "var(--green)" : estimate.complexity === "High" ? "var(--red)" : "var(--amber)"
+                    }}>{estimate.complexity}</span>
+                  </div>
+                </div>
+                {estimate.tips && (
+                  <ul style={{ margin:"10px 0 0", paddingLeft:18 }}>
+                    {estimate.tips.map((t, i) => (
+                      <li key={i} style={{ fontSize:13, color:"var(--text2)", marginBottom:4 }}>{t}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display:"flex", gap:12, marginTop:24 }}>
+            <button type="button" onClick={onClose} className="btn btn-ghost" style={{ flex:1 }}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={saving} style={{ flex:2 }}>
+              {saving ? <span className="spinner" /> : "Post Project"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
-/* ─── Bid Form Modal ─── */
-function BidFormModal({ project, onClose, onSuccess }) {
-  const [amount,  setAmount]  = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+// ── Bid Modal ──
+function BidModal({ project, onClose, onSuccess }) {
+  const [amount,     setAmount]     = useState("");
+  const [message,    setMessage]    = useState("");
+  const [saving,     setSaving]     = useState(false);
+  const [generating, setGenerating] = useState(false);  // ✅ properly declared
 
-  const submit = async e => {
+  const generateProposal = async () => {
+    if (!amount) { showToast("error", "Enter your bid amount first"); return; }
+    setGenerating(true);
+    try {
+      const skills = localStorage.getItem("skills") || "web development, software engineering";
+      const res = await API.post("/ai/generate-proposal", {
+        projectTitle:       project.title,
+        projectDescription: project.description,
+        budget:             project.budget,
+        freelancerSkills:   skills,
+      });
+      setMessage(res.data.proposal);
+      showToast("success", "Proposal generated! ✨");
+    } catch (err) {
+      showToast("error", err.response?.data?.message || "AI generation failed. Check ANTHROPIC_API_KEY.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!amount || Number(amount) < 1) { showToast("error", "Enter a valid bid amount"); return; }
-    setLoading(true);
+    if (!amount) { showToast("error", "Enter your bid amount"); return; }
+    setSaving(true);
     try {
       await API.post("/bid", { projectId: project._id, amount: Number(amount), message });
+      showToast("success", "Bid submitted! The client will be notified.");
       onSuccess();
     } catch (err) {
       showToast("error", err.response?.data?.message || "Failed to submit bid");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   return (
-    <ModalWrap onClose={onClose}>
-      <div style={s.modalHeader}>
-        <h2 style={s.modalTitle}>Place a bid</h2>
-        <button style={s.closeBtn} onClick={onClose}>✕</button>
-      </div>
-      <p style={s.modalSub}>{project.title} · Budget: <strong style={{ color: "#34d399" }}>${project.budget}</strong></p>
-      <form onSubmit={submit} style={s.modalForm}>
-        <Field label="Your bid amount (USD)">
-          <input style={s.modalInput} type="number" placeholder="e.g. 450" value={amount} onChange={e => setAmount(e.target.value)} />
-        </Field>
-        <Field label="Cover message">
-          <textarea style={s.modalTextarea} placeholder="Why are you the best fit for this project?" value={message} onChange={e => setMessage(e.target.value)} />
-        </Field>
-        <div style={s.modalBtns}>
-          <button type="button" style={s.cancelBtn} onClick={onClose}>Cancel</button>
-          <button type="submit" style={s.submitBtn} disabled={loading}>
-            {loading ? <span style={s.spinner} /> : "Submit bid"}
-          </button>
+    <div style={m.overlay}>
+      <div style={m.modal}>
+        <div style={m.header}>
+          <h2 style={m.title}>Place a Bid</h2>
+          <button onClick={onClose} style={m.closeBtn}>✕</button>
         </div>
-      </form>
-    </ModalWrap>
-  );
-}
 
-/* ─── Bids List Modal ─── */
-function BidsModal({ project, onClose, onRefresh, isOwner }) {
-  const [bids,    setBids]    = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    API.get(`/bids/${project._id}`)
-      .then(r => setBids(r.data))
-      .catch(() => showToast("error", "Failed to load bids"))
-      .finally(() => setLoading(false));
-  }, [project._id]);
-
-  const accept = async (bid) => {
-    try {
-      await API.post("/accept-bid", { projectId: project._id, freelancerEmail: bid.freelancerEmail });
-      showToast("success", `Accepted bid from ${bid.freelancerEmail.split("@")[0]}`);
-      onRefresh();
-      onClose();
-    } catch (err) {
-      showToast("error", err.response?.data?.message || "Failed to accept bid");
-    }
-  };
-
-  return (
-    <ModalWrap onClose={onClose} wide>
-      <div style={s.modalHeader}>
-        <h2 style={s.modalTitle}>Bids ({bids.length})</h2>
-        <button style={s.closeBtn} onClick={onClose}>✕</button>
-      </div>
-      <p style={s.modalSub}>{project.title}</p>
-
-      {loading ? (
-        <div style={{ textAlign: "center", padding: "30px 0" }}>
-          <div style={s.spinner} />
+        {/* Project info */}
+        <div style={m.projectInfo}>
+          <p style={{ fontSize:15, fontWeight:600, color:"var(--text)", margin:"0 0 4px" }}>
+            {project.title}
+          </p>
+          <p style={{ fontSize:13, color:"var(--text3)", margin:0 }}>
+            Client budget: <strong style={{ color:"var(--green)" }}>${project.budget}</strong>
+          </p>
         </div>
-      ) : bids.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "36px 0", color: "#4a5280" }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>◎</div>
-          <p>No bids yet on this project.</p>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: 420, overflowY: "auto" }}>
-          {bids.map((b, i) => (
-            <div key={i} style={s.bidRow}>
-              <div style={s.bidAvatar}>{(b.freelancerEmail || "?")[0].toUpperCase()}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: "#f0f0ff", marginBottom: 4 }}>
-                  {b.freelancerEmail}
-                </div>
-                {b.message && (
-                  <p style={{ fontSize: 13, color: "#7a83aa", lineHeight: 1.55, margin: 0 }}>{b.message}</p>
-                )}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10, flexShrink: 0 }}>
-                <span style={s.bidAmount}>${b.amount}</span>
-                {isOwner && !project.assigned && (
-                  <button style={s.acceptBtn} onClick={() => accept(b)}>Accept</button>
-                )}
-              </div>
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+            <div className="form-group">
+              <label className="form-label">Your Bid Amount ($) *</label>
+              <input
+                className="form-input"
+                type="number" min="1"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+                placeholder="Enter your price"
+                required
+              />
             </div>
-          ))}
-        </div>
-      )}
-    </ModalWrap>
-  );
-}
 
-/* ─── Reusable helpers ─── */
-function ModalWrap({ children, onClose, wide }) {
-  return (
-    <div style={s.overlay} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ ...s.modal, maxWidth: wide ? 580 : 480 }}>
-        {children}
+            <div className="form-group">
+              <label className="form-label">Proposal / Message</label>
+              <textarea
+                className="form-input"
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                placeholder="Describe your approach, experience, and why you're the best fit..."
+                rows={4}
+                style={{ resize:"vertical" }}
+              />
+            </div>
+
+            {/* AI Generate button */}
+            <button
+              type="button"
+              onClick={generateProposal}
+              disabled={generating}
+              style={s.aiBtn}
+            >
+              {generating
+                ? <><span className="spinner" style={{ width:14, height:14 }} /> Generating...</>
+                : "✨ Generate with AI"
+              }
+            </button>
+          </div>
+
+          <div style={{ display:"flex", gap:12, marginTop:24 }}>
+            <button type="button" onClick={onClose} className="btn btn-ghost" style={{ flex:1 }}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={saving} style={{ flex:2 }}>
+              {saving ? <span className="spinner" /> : "Submit Bid"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
 }
 
-function Field({ label, error, children }) {
+// ── View Bids Modal ──
+function BidsModal({ project, bids, loading, email, onClose, onAccept }) {
+  const isOwner = project.createdBy === email;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-      <label style={s.fieldLabel}>{label}</label>
-      {children}
-      {error && <span style={s.fieldError}>{error}</span>}
+    <div style={m.overlay}>
+      <div style={{ ...m.modal, maxWidth:540 }}>
+        <div style={m.header}>
+          <h2 style={m.title}>Bids for "{project.title}"</h2>
+          <button onClick={onClose} style={m.closeBtn}>✕</button>
+        </div>
+
+        {loading ? (
+          <div style={{ padding:"40px 0", textAlign:"center" }}>
+            <div className="spinner" style={{ margin:"0 auto", width:28, height:28 }} />
+          </div>
+        ) : bids.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">◇</div>
+            <h3>No bids yet</h3>
+            <p>Share your project link to attract freelancers.</p>
+          </div>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:12, maxHeight:420, overflowY:"auto" }}>
+            {bids.map(b => (
+              <div key={b._id} style={s.bidCard}>
+                <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+                      <div style={s.bidAvatar}>
+                        {(b.freelancerEmail||"?")[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <p style={{ fontSize:14, fontWeight:600, color:"var(--text)", margin:0 }}>
+                          {b.freelancerEmail?.split("@")[0]}
+                        </p>
+                        <p style={{ fontSize:11, color:"var(--text3)", margin:0 }}>
+                          {new Date(b.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    {b.message && (
+                      <p style={{ fontSize:13, color:"var(--text2)", lineHeight:1.6, margin:0 }}>
+                        {b.message}
+                      </p>
+                    )}
+                  </div>
+                  <div style={{ textAlign:"right", flexShrink:0 }}>
+                    <p style={{ fontSize:20, fontWeight:800, color:"var(--green)", margin:"0 0 8px", fontFamily:"'Syne',sans-serif" }}>
+                      ${b.amount}
+                    </p>
+                    {isOwner && !project.assigned && (
+                      <button
+                        className="btn btn-primary"
+                        style={{ padding:"8px 16px", fontSize:13 }}
+                        onClick={() => onAccept(project._id, b.freelancerEmail)}
+                      >
+                        Accept
+                      </button>
+                    )}
+                    {project.assigned && project.assignedFreelancer === b.freelancerEmail && (
+                      <span className="badge badge-green">✓ Hired</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button onClick={onClose} className="btn btn-ghost" style={{ width:"100%", marginTop:16 }}>
+          Close
+        </button>
+      </div>
     </div>
   );
 }
 
-/* ─── Styles ─── */
+// ══════════════════════════════════════
+//  STYLES
+// ══════════════════════════════════════
 const s = {
-  layout:  { display: "flex", minHeight: "100vh", fontFamily: "'Segoe UI', system-ui, sans-serif", background: "#07080f" },
-  main:    { flex: 1, overflowY: "auto", background: "radial-gradient(ellipse at 10% 10%, rgba(108,99,255,0.06) 0%, transparent 55%), #07080f" },
-  inner:   { padding: "44px 52px", maxWidth: 1200 },
+  topbar:    { display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:28, flexWrap:"wrap", gap:16 },
+  pageTitle: { fontSize:30, fontWeight:800, color:"var(--text)", margin:"0 0 6px", letterSpacing:"-0.8px", fontFamily:"'Syne',sans-serif" },
+  pageSub:   { fontSize:14, color:"var(--text2)", margin:0 },
 
-  topbar:   { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 16 },
-  title:    { fontSize: 34, fontWeight: 800, color: "#f0f0ff", margin: "0 0 6px", letterSpacing: "-1px", fontFamily: "Georgia, serif" },
-  subtitle: { fontSize: 15, color: "#7a83aa", margin: 0 },
+  filtersRow:{ display:"flex", alignItems:"center", gap:12, marginBottom:28, flexWrap:"wrap" },
+  filterBtns:{ display:"flex", gap:6 },
+  select:    { background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:10, padding:"8px 14px", color:"var(--text)", fontSize:14, cursor:"pointer", outline:"none", fontFamily:"inherit", height:40 },
 
-  postBtn: {
-    padding: "13px 26px", borderRadius: 12, border: "none",
-    background: "linear-gradient(135deg, #6c63ff, #a78bfa)",
-    color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer",
-    boxShadow: "0 4px 20px rgba(108,99,255,0.35)", fontFamily: "inherit",
+  grid:        { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(300px,1fr))", gap:20, marginBottom:32 },
+  skeletonCard:{ background:"var(--bg2)", border:"1px solid var(--border)", borderRadius:14, padding:24 },
+
+  card:      { background:"var(--bg2)", border:"1px solid var(--border)", borderRadius:14, padding:22, transition:"all 0.2s", cursor:"default" },
+  cardTop:   { display:"flex", gap:8, marginBottom:12 },
+  cardTitle: { fontSize:17, fontWeight:700, color:"var(--text)", margin:"0 0 8px", lineHeight:1.3, fontFamily:"'Syne',sans-serif" },
+  cardDesc:  { fontSize:13, color:"var(--text2)", lineHeight:1.65, margin:"0 0 14px" },
+  cardMeta:  { display:"flex", gap:14, marginBottom:16 },
+  cardMetaItem:{ fontSize:12, color:"var(--text3)" },
+  cardFooter:{ display:"flex", alignItems:"center", justifyContent:"space-between" },
+  cardBudget:{ fontSize:22, fontWeight:800, color:"var(--green)", fontFamily:"'Syne',sans-serif" },
+
+  aiBtn: {
+    display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+    padding:"10px 18px", borderRadius:10,
+    background:"linear-gradient(135deg,rgba(108,99,255,0.15),rgba(167,139,250,0.15))",
+    border:"1px solid rgba(108,99,255,0.35)",
+    color:"var(--accent2)", fontSize:13, fontWeight:600,
+    cursor:"pointer", fontFamily:"inherit", transition:"all 0.2s",
   },
 
-  toolbar:    { display: "flex", gap: 14, marginBottom: 32, flexWrap: "wrap" },
-  searchWrap: { flex: 1, position: "relative", minWidth: 260 },
-  searchIcon: { position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 15, pointerEvents: "none" },
-  searchInput: {
-    width: "100%", padding: "12px 42px", borderRadius: 12, fontSize: 14,
-    background: "#0d0f1e", border: "1px solid rgba(255,255,255,0.09)",
-    color: "#f0f0ff", outline: "none", boxSizing: "border-box", fontFamily: "inherit",
+  estimateBox: {
+    background:"rgba(52,211,153,0.06)", border:"1px solid rgba(52,211,153,0.2)",
+    borderRadius:12, padding:"16px 18px",
   },
-  searchInputFocus: {
-    width: "100%", padding: "12px 42px", borderRadius: 12, fontSize: 14,
-    background: "#13162a", border: "1px solid #6c63ff",
-    color: "#f0f0ff", outline: "none", boxSizing: "border-box", fontFamily: "inherit",
-    boxShadow: "0 0 0 3px rgba(108,99,255,0.12)",
-  },
-  clearBtn:  { position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#4a5280", cursor: "pointer", fontSize: 13 },
+  estimateTitle:{ fontSize:13, fontWeight:700, color:"var(--green)", margin:"0 0 12px" },
+  estimateGrid: { display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 },
+  estimateItem: { display:"flex", flexDirection:"column", gap:4 },
+  estimateLabel:{ fontSize:11, color:"var(--text3)", textTransform:"uppercase", letterSpacing:"0.4px" },
+  estimateValue:{ fontSize:15, fontWeight:700, color:"var(--text)" },
 
-  filters:     { display: "flex", gap: 8 },
-  filterBtn:   { padding: "11px 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.09)", background: "#0d0f1e", color: "#7a83aa", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", textTransform: "capitalize" },
-  filterActive:{ padding: "11px 18px", borderRadius: 10, border: "1px solid rgba(108,99,255,0.4)", background: "rgba(108,99,255,0.15)", color: "#818cf8", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textTransform: "capitalize" },
+  bidCard:  { background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:12, padding:16 },
+  bidAvatar:{ width:36, height:36, borderRadius:"50%", background:"linear-gradient(135deg,#6c63ff,#f472b6)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:700, color:"#fff", flexShrink:0 },
 
-  grid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 22, marginBottom: 36 },
+  pagination:{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginTop:8 },
+};
 
-  card: {
-    background: "#0d0f1e", border: "1px solid rgba(255,255,255,0.07)",
-    borderRadius: 16, padding: "26px 26px",
-    transition: "border-color 0.2s, transform 0.2s",
-    display: "flex", flexDirection: "column", gap: 0,
-  },
-  cardHover: { borderColor: "rgba(129,140,248,0.35)", transform: "translateY(-3px)" },
-
-  cardTop:   { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 12 },
-  cardTitle: { fontSize: 17, fontWeight: 700, color: "#f0f0ff", margin: 0, lineHeight: 1.3, fontFamily: "Georgia, serif" },
-
-  badgePurple: { padding: "4px 11px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "rgba(129,140,248,0.15)", color: "#818cf8", flexShrink: 0, whiteSpace: "nowrap" },
-  badgeGreen:  { padding: "4px 11px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "rgba(52,211,153,0.15)", color: "#34d399", flexShrink: 0, whiteSpace: "nowrap" },
-
-  cardDesc:    { fontSize: 13, color: "#7a83aa", lineHeight: 1.6, margin: "0 0 18px", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" },
-  cardMeta:    { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
-  cardBy:      { fontSize: 12, color: "#4a5280" },
-  cardBudget:  { fontSize: 22, fontWeight: 800, color: "#34d399", fontFamily: "Georgia, serif" },
-
-  cardActions: { display: "flex", gap: 8, marginTop: "auto" },
-  viewBidsBtn: { flex: 1, padding: "9px 0", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#9098c0", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" },
-  bidBtn:      { flex: 1, padding: "9px 0", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #6c63ff, #a78bfa)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" },
-  manageBtn:   { flex: 1, padding: "9px 0", borderRadius: 10, border: "1px solid rgba(129,140,248,0.3)", background: "rgba(129,140,248,0.08)", color: "#818cf8", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" },
-
-  // Pagination
-  paginationBar: { display: "flex", alignItems: "center", justifyContent: "center", gap: 12, paddingTop: 12 },
-  pageBtn:       { padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "#0d0f1e", color: "#9098c0", fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" },
-  pageNumbers:   { display: "flex", gap: 6 },
-  pageNum:       { width: 38, height: 38, borderRadius: 10, border: "1px solid rgba(255,255,255,0.09)", background: "#0d0f1e", color: "#7a83aa", fontSize: 14, cursor: "pointer", fontFamily: "inherit" },
-  pageNumActive: { width: 38, height: 38, borderRadius: 10, border: "1px solid rgba(108,99,255,0.4)", background: "rgba(108,99,255,0.15)", color: "#818cf8", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
-
-  // Empty state
-  center:     { display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300 },
-  emptyState: { textAlign: "center", padding: "70px 20px", color: "#4a5280" },
-  emptyTitle: { fontSize: 22, fontWeight: 700, color: "#7a83aa", margin: "0 0 10px" },
-  emptySub:   { fontSize: 15, margin: "0 0 24px" },
-  clearSearchBtn: { padding: "10px 22px", borderRadius: 10, border: "1px solid rgba(108,99,255,0.3)", background: "rgba(108,99,255,0.1)", color: "#818cf8", fontSize: 14, cursor: "pointer", fontFamily: "inherit" },
-
-  // Modal
-  overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 },
-  modal:   { background: "#0d0f1e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: "36px", width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" },
-  modalHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
-  modalTitle:  { fontSize: 22, fontWeight: 700, color: "#f0f0ff", margin: 0, fontFamily: "Georgia, serif" },
-  modalSub:    { fontSize: 14, color: "#7a83aa", margin: "0 0 24px" },
-  closeBtn:    { background: "none", border: "none", color: "#4a5280", cursor: "pointer", fontSize: 18, padding: 4 },
-  modalForm:   { display: "flex", flexDirection: "column", gap: 18 },
-  modalInput:  { background: "#13162a", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 11, padding: "12px 16px", fontSize: 14, color: "#f0f0ff", width: "100%", outline: "none", boxSizing: "border-box", fontFamily: "inherit" },
-  modalTextarea: { background: "#13162a", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 11, padding: "12px 16px", fontSize: 14, color: "#f0f0ff", width: "100%", outline: "none", boxSizing: "border-box", fontFamily: "inherit", minHeight: 100, resize: "vertical", lineHeight: 1.6 },
-  modalBtns:   { display: "flex", gap: 12, marginTop: 8 },
-  cancelBtn:   { flex: 1, padding: "12px", borderRadius: 11, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#9098c0", fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" },
-  submitBtn:   { flex: 1, padding: "12px", borderRadius: 11, border: "none", background: "linear-gradient(135deg, #6c63ff, #a78bfa)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center" },
-  fieldLabel:  { fontSize: 13, fontWeight: 500, color: "#7a83aa" },
-  fieldError:  { fontSize: 12, color: "#f87171", marginTop: 2 },
-
-  // Bid row
-  bidRow:    { display: "flex", gap: 14, padding: "16px", background: "#13162a", borderRadius: 12, alignItems: "flex-start" },
-  bidAvatar: { width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #6c63ff, #f472b6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0 },
-  bidAmount: { fontSize: 20, fontWeight: 800, color: "#34d399", fontFamily: "Georgia, serif" },
-  acceptBtn: { padding: "7px 16px", borderRadius: 9, border: "none", background: "linear-gradient(135deg, #6c63ff, #a78bfa)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" },
-
-  spinner: { display: "inline-block", width: 24, height: 24, border: "3px solid rgba(255,255,255,0.08)", borderTopColor: "#6c63ff", borderRadius: "50%", animation: "spin 0.7s linear infinite" },
+const m = {
+  overlay:     { position:"fixed", inset:0, background:"rgba(0,0,0,0.78)", backdropFilter:"blur(8px)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"fadeIn 0.2s" },
+  modal:       { background:"var(--bg2)", border:"1px solid var(--border2)", borderRadius:20, padding:"32px", width:"100%", maxWidth:480, boxShadow:"0 32px 80px rgba(0,0,0,0.7)", maxHeight:"90vh", overflowY:"auto", animation:"slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1)" },
+  header:      { display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 },
+  title:       { fontSize:20, fontWeight:800, color:"var(--text)", margin:0, fontFamily:"'Syne',sans-serif" },
+  closeBtn:    { background:"rgba(255,255,255,0.06)", border:"1px solid var(--border)", borderRadius:8, color:"var(--text3)", fontSize:16, cursor:"pointer", width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center" },
+  projectInfo: { background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:12, padding:"14px 16px", marginBottom:20 },
 };
