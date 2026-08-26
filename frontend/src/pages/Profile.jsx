@@ -116,7 +116,7 @@ export default function Profile() {
                 </div>
                 <div style={s.divider} />
                 <div style={s.miniStat}>
-                  <div style={s.miniStatNum} style={{ color: role==="client"?"var(--cyan)":"var(--accent2)" }}>
+                  <div style={{ ...s.miniStatNum, color: role==="client"?"var(--cyan)":"var(--accent2)" }}>
                     {role === "client" ? "C" : "F"}
                   </div>
                   <div style={s.miniStatLabel}>{role}</div>
