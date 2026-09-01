@@ -59,7 +59,7 @@ app.use(helmet());
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    process.env.FRONTEND_URL || "https://authentic-beauty-production-e914.up.railway.app",
+    "https://freelancehub-frontend.onrender.com",  // ← your Render frontend URL
   ],
   credentials: true,
 }));
