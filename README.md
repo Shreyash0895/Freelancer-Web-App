@@ -1,6 +1,6 @@
 # FreelanceHub 🚀
 
-A full-stack freelance marketplace where clients post projects, freelancers bid and get hired, and both parties chat, share files, track payments, and get notified — all in one place.
+A production-ready full-stack freelance marketplace — clients post projects, freelancers bid and get hired, both chat privately, share files, use AI tools, join video meetings, and get paid securely with escrow protection.
 
 ---
 
@@ -8,12 +8,12 @@ A full-stack freelance marketplace where clients post projects, freelancers bid 
 
 | Service | URL |
 |---------|-----|
-| **Frontend (Live App)** | [https://authentic-beauty-production-e914.up.railway.app](https://authentic-beauty-production-e914.up.railway.app) |
-| **Backend API** | [https://freelancer-web-app-production.up.railway.app](https://freelancer-web-app-production.up.railway.app) |
+| **Frontend** | [https://freelancehub-frontend.onrender.com](https://freelancehub-frontend.onrender.com) |
+| **Backend API** | [https://freelancehub-backend.onrender.com](https://freelancehub-backend.onrender.com) |
 | **Database** | MongoDB Atlas (Cloud) |
 | **Repository** | [github.com/Shreyash0895/Freelancer-Web-App](https://github.com/Shreyash0895/Freelancer-Web-App) |
 
-> 👉 Try it now: sign up as a **Client** to post a project, or as a **Freelancer** to start bidding.
+> 👉 Sign up as a **Client** to post a project, or as a **Freelancer** to start bidding.
 
 ---
 
@@ -22,20 +22,28 @@ A full-stack freelance marketplace where clients post projects, freelancers bid 
 | Feature | Status |
 |---------|--------|
 | 🏠 Public landing page with live activity ticker | ✅ |
-| 🔐 JWT Authentication (Client / Freelancer roles) | ✅ |
+| 🔐 JWT Authentication — Client / Freelancer roles | ✅ |
 | 📋 Post, browse, search and filter projects | ✅ |
-| 💰 Bidding system with accept/reject | ✅ |
+| 💰 Bidding system with accept / reject | ✅ |
+| 🤖 AI proposal generator (Claude) | ✅ |
+| 🤖 AI project estimation (Claude) | ✅ |
 | 💬 Private chat per project (auto-unlocks on bid acceptance) | ✅ |
 | 🌐 Global public chat room | ✅ |
+| 📹 Video meetings (Daily.co) | ✅ |
 | 💳 Stripe payment processing | ✅ |
+| ✅ Payment status saved in MongoDB | ✅ |
+| 🔄 Project completion tracking | ✅ |
+| 💰 Escrow simulation | ✅ |
 | 📧 Email notifications (Nodemailer) | ✅ |
-| 🔔 In-app notification bell with live unread badge | ✅ |
-| 📎 File attachments via Cloudinary | ✅ |
-| 📊 Analytics dashboard (earnings, spending, charts) | ✅ |
-| 🧾 PDF invoice generation and download | ✅ |
-| 👤 Profile management | ✅ |
-| ⭐ Reviews and ratings (backend ready) | 🔧 In progress |
-| 📱 Mobile responsive polish | 🔧 In progress |
+| 🔔 In-app notification bell with live badge | ✅ |
+| 📎 File attachments (Cloudinary) | ✅ |
+| 📊 Analytics dashboard (Recharts) | ✅ |
+| 🧾 PDF invoice download (jsPDF) | ✅ |
+| 👤 Profile management with skill tags | ✅ |
+| ⭐ Reviews and ratings | ✅ |
+| 💥 Error boundary — no blank screens | ✅ |
+| ⚡ Skeleton loading states | ✅ |
+| 📱 Mobile responsive | ✅ |
 
 ---
 
@@ -45,10 +53,10 @@ A full-stack freelance marketplace where clients post projects, freelancers bid 
 | Tech | Purpose |
 |------|---------|
 | React 18 + Vite 5 | UI framework and build tool |
-| React Router v6 | Routing |
-| Axios | API calls with JWT interceptor |
-| Socket.io Client | Real-time private/global chat |
-| Stripe.js | Payment UI |
+| React Router v6 | Client-side routing |
+| Axios | HTTP requests with JWT interceptor |
+| Socket.io Client | Real-time chat |
+| Stripe.js | Payment card UI |
 | Recharts | Analytics charts |
 | jsPDF + autoTable | PDF invoice generation |
 | Framer Motion | Animations |
@@ -58,71 +66,27 @@ A full-stack freelance marketplace where clients post projects, freelancers bid 
 |------|---------|
 | Node.js + Express | REST API |
 | MongoDB Atlas + Mongoose | Database |
-| Socket.io | Real-time WebSocket server with room-based auth |
+| Socket.io | Real-time WebSocket with room auth |
 | JWT | Authentication |
 | bcryptjs | Password hashing |
 | Stripe | Payment gateway |
-| Nodemailer | Transactional emails |
-| Cloudinary + Multer | File storage |
+| Nodemailer | Email via Gmail SMTP |
+| Cloudinary + Multer | File uploads |
+| Anthropic SDK | AI features (Claude) |
 | Joi | Request validation |
-| Helmet + express-rate-limit | Security |
+| Helmet + Rate Limit | Security |
 
 ### Infrastructure
 | Service | Purpose |
 |---------|---------|
 | MongoDB Atlas | Cloud database |
-| Railway | Hosting — frontend + backend, auto-deploy on push |
+| Render | Hosting — frontend + backend |
 | Cloudinary | File and image storage |
+| Stripe | Payment processing |
 | Gmail SMTP | Email delivery |
-| GitHub | Version control and CI/CD |
-
----
-
-## 📁 Project Structure
-
-```
-freelancer-app/
-├── .gitignore
-├── README.md
-│
-├── backend/
-│   ├── server.js              # Express + Socket.io + all routes
-│   ├── package.json
-│   ├── .env                   # Environment variables (never commit)
-│   └── .gitignore
-│
-└── frontend/
-    ├── src/
-    │   ├── api/
-    │   │   └── api.js                 # Axios instance with JWT interceptor
-    │   ├── components/
-    │   │   ├── Sidebar.jsx            # Navigation sidebar
-    │   │   ├── NotificationBell.jsx   # Live notification bell with badge
-    │   │   ├── ProtectedRoute.jsx     # Auth guard
-    │   │   └── FileUpload.jsx         # Drag-drop upload + file list
-    │   ├── pages/
-    │   │   ├── LandingPage.jsx        # Public homepage with live ticker
-    │   │   ├── Login.jsx
-    │   │   ├── Signup.jsx             # Role pre-select via ?role= param
-    │   │   ├── Dashboard.jsx
-    │   │   ├── Projects.jsx
-    │   │   ├── Chat.jsx               # Private per-project + global chat
-    │   │   ├── Payments.jsx           # Stripe checkout
-    │   │   ├── Analytics.jsx          # Charts (client + freelancer views)
-    │   │   ├── Invoice.jsx            # PDF invoice generation
-    │   │   └── Profile.jsx
-    │   ├── styles/
-    │   │   ├── global.css
-    │   │   ├── auth.css
-    │   │   └── dashboard.css
-    │   ├── utils/
-    │   │   └── toast.js
-    │   ├── App.jsx
-    │   └── main.jsx
-    ├── package.json
-    ├── vite.config.js
-    └── .gitignore
-```
+| Daily.co | Video meeting rooms |
+| Anthropic Claude API | AI proposal + estimation |
+| GitHub | Version control + CI/CD |
 
 ---
 
@@ -130,19 +94,21 @@ freelancer-app/
 
 ### Prerequisites
 - Node.js v18+
-- MongoDB Atlas account (free)
-- Stripe account (free, test mode)
-- Cloudinary account (free)
-- Gmail account with App Password
+- MongoDB Atlas account
+- Stripe account (test mode)
+- Cloudinary account
+- Gmail with App Password
+- Anthropic API key
+- Daily.co account
 
-### 1. Clone the repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/Shreyash0895/Freelancer-Web-App.git
 cd Freelancer-Web-App
 ```
 
-### 2. Setup Backend
+### 2. Backend Setup
 
 ```bash
 cd backend
@@ -151,30 +117,25 @@ npm install
 
 Create `backend/.env`:
 ```bash
-JWT_SECRET=your_super_secret_key_here
-MONGO_URI=mongodb://username:password@host:27017/freelancer-app?ssl=true&replicaSet=...
+JWT_SECRET=your_secret_min_32_chars
+MONGO_URI=mongodb://username:password@host/freelancer-app?ssl=true&...
 PORT=5001
-
-STRIPE_SECRET=sk_test_your_stripe_secret_key
-
+STRIPE_SECRET=sk_test_your_key
 EMAIL_USER=yourgmail@gmail.com
 EMAIL_PASS=your_16_char_app_password
-
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-
+CLOUDINARY_CLOUD_NAME=your_name
+CLOUDINARY_API_KEY=your_key
+CLOUDINARY_API_SECRET=your_secret
+ANTHROPIC_API_KEY=sk-ant-your_key
+DAILY_API_KEY=your_daily_key
 FRONTEND_URL=http://localhost:5173
 ```
 
-Start backend:
 ```bash
-npm run dev
+npm run dev   # runs on http://localhost:5001
 ```
 
-Backend runs on: `http://localhost:5001`
-
-### 3. Setup Frontend
+### 3. Frontend Setup
 
 ```bash
 cd ../frontend
@@ -184,15 +145,12 @@ npm install
 Create `frontend/.env.local`:
 ```bash
 VITE_API_URL=http://localhost:5001
-VITE_STRIPE_PUBLIC_KEY=pk_test_your_stripe_publishable_key
+VITE_STRIPE_PUBLIC_KEY=pk_test_your_key
 ```
 
-Start frontend:
 ```bash
-npm run dev
+npm run dev   # runs on http://localhost:5173
 ```
-
-Frontend runs on: `http://localhost:5173`
 
 ---
 
@@ -201,189 +159,170 @@ Frontend runs on: `http://localhost:5173`
 ### Auth
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/signup` | Create account and send welcome email |
-| POST | `/login` | Login, returns JWT |
-
-### Projects
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/projects` | Paginated, searchable, filterable |
-| GET | `/projects/:id` | Single project with attachments |
-| POST | `/projects` | Create project (client only) |
-| POST | `/projects/:id/complete` | Mark completed |
-
-### Bids
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/bid` | Submit a bid and email client |
-| GET | `/bids/:projectId` | List bids for a project |
-| POST | `/accept-bid` | Accept bid, unlock private chat, email freelancer |
-
-### Files
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/projects/:id/upload` | Upload file via Cloudinary |
-| DELETE | `/projects/:id/files/:fileIndex` | Delete a file |
-
-### Chat
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/my-chats` | List all my conversations |
-| GET | `/messages/:room` | Message history (auth-checked per room) |
-
-### Payments
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/create-payment` | Create Stripe payment intent |
-
-### Reviews
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/reviews` | Submit review (client only) |
-| GET | `/reviews/:freelancerEmail` | Get reviews for a freelancer |
-| GET | `/reviews/check/:projectId` | Check if review exists |
-
-### Notifications
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/notifications` | My notifications + unread count |
-| PUT | `/notifications/read` | Mark all as read |
+| POST | `/signup` | Register + welcome email |
+| POST | `/login` | Login → JWT token |
 
 ### Profile
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/profile` | My profile |
-| PUT | `/profile` | Update my profile |
-| GET | `/profile/:email` | Public profile with reviews |
+| PUT | `/profile` | Update profile |
+| GET | `/profile/:email` | Public profile + reviews |
+
+### Projects
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/projects` | Paginated + searchable |
+| GET | `/projects/:id` | Single project |
+| POST | `/projects` | Create project |
+| POST | `/projects/:id/pay` | Mark paid in MongoDB |
+| POST | `/projects/:id/complete` | Mark completed |
+
+### Bids
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/bid` | Submit bid + email client |
+| GET | `/bids/:projectId` | List bids |
+| POST | `/accept-bid` | Accept + unlock chat + email freelancer |
+
+### Files
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/projects/:id/upload` | Upload to Cloudinary (10MB max) |
+| DELETE | `/projects/:id/files/:i` | Delete file |
+
+### Chat
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/my-chats` | All my conversations |
+| GET | `/messages/:room` | Message history |
+
+### Payments + Escrow
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/create-payment` | Stripe payment intent |
+| POST | `/escrow/deposit` | Client deposits to escrow |
+| POST | `/escrow/release` | Client releases to freelancer |
+| GET | `/escrow/:projectId` | Escrow status |
+
+### Reviews
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/reviews` | Submit review |
+| GET | `/reviews/:email` | Reviews for freelancer |
+| GET | `/reviews/check/:id` | Check if review exists |
+
+### Notifications
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/notifications` | My notifications + unread count |
+| PUT | `/notifications/read` | Mark all read |
+
+### AI
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/ai/generate-proposal` | Write bid proposal (Claude) |
+| POST | `/ai/estimate-project` | Estimate timeline + budget (Claude) |
+
+### Meetings
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/meetings/create` | Create Daily.co video room |
 
 ### Socket.io Events
 | Event | Direction | Description |
 |-------|-----------|-------------|
-| `sendMessage` | Client → Server | Send a message (room-scoped) |
-| `receiveMessage` | Server → Client | New message in current room |
-| `chatHistory` | Server → Client | Initial history on join |
-| `authError` | Server → Client | Unauthorized room access attempt |
+| `sendMessage` | Client → Server | Send message |
+| `receiveMessage` | Server → Client | Incoming message |
+| `chatHistory` | Server → Client | History on join |
+| `authError` | Server → Client | Unauthorized room |
 
 ---
 
 ## 📧 Email Notifications
 
-Emails are sent automatically when:
-
 | Trigger | Recipient | Subject |
 |---------|-----------|---------|
-| Account created | New user | Welcome to FreelanceHub 🚀 |
-| Bid placed | Client | New bid on your project 💰 |
+| Account signup | New user | Welcome to FreelanceHub 🚀 |
+| Bid submitted | Client | New bid on your project 💰 |
 | Bid accepted | Freelancer | Your bid was accepted 🎉 |
 | File uploaded | Other party | New file uploaded 📎 |
+| Payment received | Freelancer | Payment received 💳 |
 
 ---
 
-## 🔔 In-app Notifications
+## 🔔 In-App Notification Bell
 
-In-app notifications appear in the sidebar bell for:
-
-| Trigger | Recipient |
-|---------|-----------|
-| New bid received | Client |
-| Bid accepted | Freelancer |
-| File uploaded | Other party |
-| Payment received | Freelancer |
-| Review received | Freelancer |
-
-The bell polls every 30 seconds, shows a live badge count, and marks all as read on open.
+| Trigger | Recipient | Icon |
+|---------|-----------|------|
+| New bid | Client | 💰 |
+| Bid accepted | Freelancer | 🎉 |
+| File uploaded | Other party | 📎 |
+| Escrow deposited | Freelancer | 💰 |
+| Payment released | Freelancer | 💳 |
+| Review received | Freelancer | ⭐ |
+| Meeting started | Other party | 📹 |
 
 ---
 
-## 🌍 Deployment (Railway)
+## 🌍 Deployment (Render)
 
-### Backend Service
+### Backend — Web Service
 | Setting | Value |
 |---------|-------|
 | Root Directory | `backend` |
+| Build Command | `npm install` |
 | Start Command | `node server.js` |
-| Variables | `JWT_SECRET`, `MONGO_URI`, `STRIPE_SECRET`, `EMAIL_USER`, `EMAIL_PASS`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `FRONTEND_URL` |
+| Instance Type | Free |
+| Variables | All `.env` keys |
 
-### Frontend Service
+### Frontend — Static Site
 | Setting | Value |
 |---------|-------|
 | Root Directory | `frontend` |
-| Build Command | `npm run build` |
-| Start Command | `npm run preview` |
+| Build Command | `npm install && npm run build` |
+| Publish Directory | `dist` |
 | Variables | `VITE_API_URL`, `VITE_STRIPE_PUBLIC_KEY` |
 
-### Auto-deploy
-Every push to `main` redeploys both services automatically:
+### Auto Deploy
+Every push to `main` triggers automatic redeploy:
 ```bash
 git add .
-git commit -m "your changes"
+git commit -m "your change"
 git push
-# Railway redeploys in ~2-3 minutes
 ```
+
+### ⚠️ Free Tier Note
+Backend sleeps after 15 minutes of inactivity. First request after sleep takes ~30 seconds to wake up. This is normal on Render's free tier.
 
 ---
 
 ## 💳 Stripe Test Cards
 
-| Card Number | Scenario |
-|-------------|---------|
-| `4242 4242 4242 4242` | Payment succeeds |
-| `4000 0000 0000 0002` | Payment declined |
-| `4000 0025 0000 3155` | Requires authentication |
+| Card | Result |
+|------|--------|
+| `4242 4242 4242 4242` | ✅ Payment succeeds |
+| `4000 0000 0000 0002` | ❌ Payment declined |
+| `4000 0025 0000 3155` | 🔐 3D Secure required |
 
-Any future expiry date and any 3-digit CVC.
+Any future expiry · Any 3-digit CVC
 
 ---
 
 ## 🔒 Security
 
-- ✅ Passwords hashed with bcryptjs (salt rounds: 10)
-- ✅ JWT tokens expire in 1 day
-- ✅ Auth rate limiting — 20 requests per 15 minutes
-- ✅ General rate limiting — 100 requests per minute
-- ✅ Helmet security headers
-- ✅ CORS restricted to known frontend origins
-- ✅ Private chat rooms verified server-side on both REST and Socket.io
-- ✅ File uploads restricted to project participants, 10MB limit
-- ✅ Owner-only bid acceptance, duplicate and self-bid prevention
-- ✅ Secrets never committed (.gitignore + history scrubbed)
-
----
-
-## 🛣️ Roadmap
-
-- [x] Public landing page with live activity ticker
-- [x] Email notifications (Nodemailer)
-- [x] In-app notification bell with live badge
-- [x] Analytics dashboard
-- [x] PDF invoice generation
-- [x] File attachments (Cloudinary)
-- [x] Private chat per project
-- [ ] Reviews and ratings UI
-- [ ] Mobile responsive polish
-- [ ] Dark and light mode toggle
-- [ ] Freelancer public profile page
-- [ ] Forgot password flow
-- [ ] Project categories and tags filter UI
-- [ ] Admin dashboard
-- [ ] Escrow payment system
-
----
-
-## 🖥️ Pages Overview
-
-| Route | Access | Description |
-|-------|--------|-------------|
-| `/` | Public | Landing page with live ticker |
-| `/login` | Public | Login form |
-| `/signup` | Public | Role-based signup |
-| `/dashboard` | Auth | Stats and recent projects |
-| `/projects` | Auth | Browse, post, bid on projects |
-| `/chat` | Auth | Private + global messaging |
-| `/payments` | Auth | Stripe payment processing |
-| `/analytics` | Auth | Earnings and spending charts |
-| `/invoice` | Auth | PDF invoice download |
-| `/profile` | Auth | Edit profile info |
+| Layer | Implementation |
+|-------|---------------|
+| Passwords | bcryptjs — 10 salt rounds |
+| Sessions | JWT — expires in 24 hours |
+| Auth rate limit | 20 requests / 15 min |
+| General rate limit | 100 requests / min |
+| HTTP headers | Helmet |
+| CORS | Restricted to known origins |
+| Private chats | Room verified on REST + Socket.io |
+| File uploads | Participants only, 10MB max |
+| Error handling | Error boundary — no blank screens |
+| Secrets | Never committed to Git |
 
 ---
 
@@ -394,4 +333,4 @@ GitHub: [@Shreyash0895](https://github.com/Shreyash0895)
 
 
 
-> Built with ❤️ using React, Node.js, MongoDB Atlas, Stripe, Cloudinary, Nodemailer, and Railway.
+> Built with React, Node.js, MongoDB Atlas, Stripe, Cloudinary, Nodemailer, Claude AI, Daily.co, and Render.
