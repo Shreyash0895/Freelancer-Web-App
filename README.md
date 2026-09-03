@@ -8,7 +8,7 @@ A production-ready full-stack freelance marketplace — clients post projects, f
 
 | Service | URL |
 |---------|-----|
-| **Frontend** | [https://freelancehub-frontend.onrender.com](https://freelancehub-frontend.onrender.com) |
+| **Frontend** |    [https://freelancehub-frontend.onrender.com](https://freelancer-web-app-2.onrender.com) |
 | **Backend API** | [https://freelancehub-backend.onrender.com](https://freelancehub-backend.onrender.com) |
 | **Database** | MongoDB Atlas (Cloud) |
 | **Repository** | [github.com/Shreyash0895/Freelancer-Web-App](https://github.com/Shreyash0895/Freelancer-Web-App) |
