@@ -59,7 +59,8 @@ app.use(helmet());
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    "https://freelancehub-frontend.onrender.com",  // ← your Render frontend URL
+    "https://freelancer-web-app.vercel.app",      // ← your new Vercel URL
+    "https://freelancehub-frontend.onrender.com", // ← keep old one too
   ],
   credentials: true,
 }));
